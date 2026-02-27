@@ -1,0 +1,232 @@
+{
+  "name": "engram-nexus",
+  "displayName": "Engram Nexus",
+  "description": "Visualizing Engram observations as a knowledge graph",
+  "version": "1.2.0",
+  "publisher": "ALLC84",
+  "icon": "resources/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ALLC84/engram-nexus"
+  },
+  "license": "MIT",
+  "keywords": [
+    "engram",
+    "knowledge",
+    "graph",
+    "soma",
+    "notes"
+  ],
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "engram-nexus.openGraph",
+        "title": "Engram: Open Knowledge Graph"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "engram-nexus-explorer",
+          "title": "Engram Nexus",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "engram-nexus-explorer": [
+        {
+          "type": "webview",
+          "id": "engram-nexus.graphView",
+          "name": "SOMA",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Engram Nexus",
+      "properties": {
+        "nexus.rootNodeLabel": {
+          "type": "string",
+          "default": "SOMA",
+          "minLength": 1,
+          "maxLength": 30,
+          "editPresentation": "singlelineText",
+          "description": "Label for the root node in the knowledge graph. This is the central node from which all projects branch.",
+          "scope": "window",
+          "order": 1
+        },
+        "nexus.maxNodes": {
+          "type": "number",
+          "default": 100,
+          "minimum": 10,
+          "maximum": 500,
+          "description": "Maximum number of observations to load in the graph. Higher values may impact performance.",
+          "scope": "window",
+          "order": 2
+        },
+        "nexus.defaultGraphState": {
+          "type": "string",
+          "enum": [
+            "collapsed",
+            "expanded"
+          ],
+          "default": "expanded",
+          "description": "Controls whether projects are loaded with their memories collapsed or expanded by default.",
+          "scope": "window",
+          "order": 3
+        },
+        "nexus.filterPanelSide": {
+          "type": "string",
+          "enum": [
+            "left",
+            "right",
+            "top",
+            "bottom",
+            "none"
+          ],
+          "default": "top",
+          "description": "Determines where the semantic filter panel will be rendered, or 'none' to disable it.",
+          "scope": "window",
+          "order": 4
+        },
+        "nexus.calendarDefaultCorner": {
+          "type": "string",
+          "enum": [
+            "right",
+            "left"
+          ],
+          "default": "right",
+          "description": "Default corner for the floating calendar when the panel is wide enough. The toggle button in the UI overrides this at runtime.",
+          "scope": "window",
+          "order": 5
+        },
+        "nexus.floatCalendarThreshold": {
+          "type": "number",
+          "default": 380,
+          "minimum": 200,
+          "description": "Panel width (in pixels) at which the calendar switches from inline to floating overlay mode.",
+          "scope": "window",
+          "order": 6
+        },
+        "nexus.colors.decision": {
+          "type": "string",
+          "format": "color-hex",
+          "default": "#f59e0b",
+          "description": "Node color for 'decision' observations.",
+          "scope": "window",
+          "order": 10
+        },
+        "nexus.colors.architecture": {
+          "type": "string",
+          "format": "color-hex",
+          "default": "#3b82f6",
+          "description": "Node color for 'architecture' observations.",
+          "scope": "window",
+          "order": 11
+        },
+        "nexus.colors.bugfix": {
+          "type": "string",
+          "format": "color-hex",
+          "default": "#ef4444",
+          "description": "Node color for 'bugfix' observations.",
+          "scope": "window",
+          "order": 12
+        },
+        "nexus.colors.pattern": {
+          "type": "string",
+          "format": "color-hex",
+          "default": "#a855f7",
+          "description": "Node color for 'pattern' observations.",
+          "scope": "window",
+          "order": 13
+        },
+        "nexus.colors.learning": {
+          "type": "string",
+          "format": "color-hex",
+          "default": "#22c55e",
+          "description": "Node color for 'learning' observations.",
+          "scope": "window",
+          "order": 14
+        },
+        "nexus.colors.session_summary": {
+          "type": "string",
+          "format": "color-hex",
+          "default": "#94a3b8",
+          "description": "Node color for 'session_summary' observations.",
+          "scope": "window",
+          "order": 15
+        },
+        "nexus.colors.feature": {
+          "type": "string",
+          "format": "color-hex",
+          "default": "#06b6d4",
+          "description": "Node color for 'feature' observations.",
+          "scope": "window",
+          "order": 16
+        },
+        "nexus.colors.config": {
+          "type": "string",
+          "format": "color-hex",
+          "default": "#f97316",
+          "description": "Node color for 'config' observations.",
+          "scope": "window",
+          "order": 17
+        },
+        "nexus.colors.discovery": {
+          "type": "string",
+          "format": "color-hex",
+          "default": "#10b981",
+          "description": "Node color for 'discovery' observations.",
+          "scope": "window",
+          "order": 18
+        },
+        "nexus.colors.manual": {
+          "type": "string",
+          "format": "color-hex",
+          "default": "#64748b",
+          "description": "Node color for 'manual' observations.",
+          "scope": "window",
+          "order": 19
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build:webview && npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "format": "prettier --write src",
+    "test": "node ./out/test/runTest.js",
+    "build:webview": "cd webview-ui && npm run build",
+    "dev:webview": "cd webview-ui && npm run dev",
+    "package": "npx @vscode/vsce package",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^4.0.3",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "18.x",
+    "@types/sqlite3": "^3.1.11",
+    "@types/vscode": "^1.80.0",
+    "@typescript-eslint/eslint-plugin": "^5.59.1",
+    "@typescript-eslint/parser": "^5.59.1",
+    "@vscode/test-electron": "^2.5.2",
+    "eslint": "^8.41.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "sqlite3": "^5.1.7"
+  }
+}

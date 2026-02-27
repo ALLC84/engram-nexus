@@ -1,0 +1,238 @@
+@import "tailwindcss";
+
+@theme {
+  --color-nexus-bg: var(--nexus-bg);
+  --color-nexus-sidebar: var(--nexus-sidebar);
+  --color-nexus-border: var(--nexus-border);
+  --color-nexus-accent: var(--nexus-accent);
+  --color-nexus-text: var(--nexus-text);
+  --color-nexus-text-bright: var(--nexus-text-bright);
+  --color-nexus-text-muted: var(--nexus-text-muted);
+  --color-nexus-input-bg: var(--nexus-input-bg);
+  --color-nexus-input-fg: var(--nexus-input-fg);
+  --color-nexus-input-border: var(--nexus-input-border);
+  --color-nexus-focus-border: var(--nexus-focus-border);
+}
+
+:root {
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif,
+    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  line-height: 1.5;
+  font-weight: 400;
+  color-scheme: dark;
+
+  /* Default Nexus Dark */
+  --nexus-bg: #1e1e1e;
+  --nexus-sidebar: #252526;
+  /* NOTA: Este valor es el fallback. El efectivo es --dark-border abajo */
+  --nexus-border: #3d3d3d;
+  --nexus-accent: #007acc;
+  --nexus-text: #cccccc;
+  --nexus-text-bright: #ffffff;
+  --nexus-text-muted: #888888;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  display: block;
+  min-width: 100%;
+  min-height: 100vh;
+  overflow: hidden;
+  background-color: var(--nexus-bg);
+  color: var(--nexus-text);
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
+/* Define variable sets (Hardcoded for manual override) */
+:root {
+  --dark-bg: #1e1e1e;
+  --dark-sidebar: #252526;
+  /* ← EDITAR AQUÍ para cambiar bordes dark (también afecta líneas del grafo) */
+  --dark-border: #3d3d3d;
+  --dark-accent: #007acc;
+  --dark-text: #cccccc;
+  --dark-text-bright: #ffffff;
+  --dark-text-muted: #888888;
+
+  /* Light theme: todo el mismo blanco roto */
+  --light-bg: #f5f5f5;
+  --light-sidebar: #f5f5f5;
+  /* ← EDITAR AQUÍ para cambiar bordes light (también afecta líneas del grafo) */
+  --light-border: #d0d0d0;
+  --light-accent: #007acc;
+  --light-text: #333333;
+  --light-text-bright: #6b7280;
+  --light-text-muted: #6b7280;
+}
+
+/* Default Nexus Logic: Use VS Code variables for colors, but our subtle border */
+body {
+  --nexus-bg: var(--vscode-editor-background, var(--dark-bg));
+  --nexus-sidebar: var(--vscode-sideBar-background, var(--dark-sidebar));
+  --nexus-border: var(--dark-border);
+  --nexus-accent: var(--vscode-focusBorder, var(--dark-accent));
+  --nexus-text: var(--vscode-editor-foreground, var(--dark-text));
+  --nexus-text-bright: var(--vscode-foreground, var(--dark-text-bright));
+  --nexus-text-muted: var(--vscode-descriptionForeground, var(--dark-text-muted));
+
+  --nexus-input-bg: var(--nexus-bg);
+  --nexus-input-fg: var(--vscode-input-foreground, var(--nexus-text));
+  --nexus-input-border: var(--nexus-border); /* Mismo color que los demás bordes */
+  --nexus-focus-border: var(--vscode-focusBorder, var(--nexus-accent));
+}
+
+body.vscode-light {
+  color-scheme: light;
+  --nexus-border: var(--light-border);
+}
+
+/* Explicit manual overrides for the toggle button */
+body.theme-dark {
+  color-scheme: dark;
+  background-color: var(--dark-bg) !important;
+  --nexus-bg: var(--dark-bg) !important;
+  --nexus-sidebar: var(--dark-sidebar) !important;
+  --nexus-border: var(--dark-border) !important;
+  --nexus-accent: var(--dark-accent) !important;
+  --nexus-text: var(--dark-text) !important;
+  --nexus-text-bright: var(--dark-text-bright) !important;
+  --nexus-text-muted: var(--dark-text-muted) !important;
+}
+
+body.theme-light {
+  color-scheme: light;
+  background-color: var(--light-bg) !important;
+  --nexus-bg: var(--light-bg) !important;
+  --nexus-sidebar: transparent !important;
+  --nexus-border: var(--light-border) !important;
+  --nexus-accent: var(--light-accent) !important;
+  --nexus-text: var(--light-text) !important;
+  --nexus-text-bright: var(--light-text-bright) !important;
+  --nexus-text-muted: var(--light-text-muted) !important;
+}
+
+/* SOLUCIÓN: Tailwind v4 evalúa @theme estáticamente al compilar.
+   bg-nexus-sidebar/* siempre usa el valor oscuro. Lo sobreescribimos con selectores directos.
+   Se aplica tanto al toggle manual (theme-light) como al tema de VS Code (vscode-light). */
+:is(body.theme-light, body.vscode-light) [class*="bg-nexus-sidebar"] {
+  background-color: transparent !important;
+}
+
+:is(body.theme-light, body.vscode-light) [class*="bg-nexus-bg"] {
+  background-color: var(--nexus-bg) !important;
+}
+
+/* Quitar backdrop-blur en light */
+:is(body.theme-light, body.vscode-light) .backdrop-blur-sm {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* Bordes correctos en light */
+:is(body.theme-light, body.vscode-light) [class*="border-nexus"] {
+  border-color: var(--nexus-border) !important;
+}
+
+/* bg-nexus-border usado como fondo de hover (congelado por Tailwind) */
+:is(body.theme-light, body.vscode-light) [class*="bg-nexus-border"]:not([class*="border-nexus"]):not([class*="hover:bg-nexus-border"]) {
+  background-color: var(--nexus-border) !important;
+}
+
+:is(body.theme-light, body.vscode-light) [class*="hover:bg-nexus-border"]:hover {
+  background-color: var(--nexus-border) !important;
+}
+
+/* Textos correctos en light (Tailwind v4 congela @theme al compilar) */
+:is(body.theme-light, body.vscode-light) [class*="text-nexus-text-bright"] {
+  color: var(--nexus-text-bright) !important;
+}
+
+/* Días fuera del mes: muy tenues para diferenciarlos claramente */
+:is(body.theme-light, body.vscode-light) [class*="text-nexus-text-muted\/30"] {
+  color: #e0e0e0 !important;
+}
+
+/* text-muted genérico — excluye la variante /30 para no sobreescribirla */
+:is(body.theme-light, body.vscode-light) [class*="text-nexus-text-muted"]:not([class*="text-nexus-text-muted\/30"]) {
+  color: var(--nexus-text-muted) !important;
+}
+
+:is(body.theme-light, body.vscode-light)
+  [class*="text-nexus-text"]:not([class*="text-nexus-text-bright"]):not(
+    [class*="text-nexus-text-muted"]
+  ) {
+  color: var(--nexus-text) !important;
+}
+
+/* Native select dropdown — Chromium usa color-scheme para decidir si el popup es dark/light */
+:is(body.theme-light, body.vscode-light) select {
+  color-scheme: light;
+}
+
+:is(body.theme-light, body.vscode-light) option {
+  background-color: var(--nexus-bg);
+  color: var(--nexus-text);
+}
+
+#root {
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Scrollbar Styling - Nexus Style */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--nexus-border);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--nexus-text-muted);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideInUp {
+  from {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.animate-slide-up {
+  animation: slideInUp 0.3s ease-out;
+}
