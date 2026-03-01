@@ -205,9 +205,11 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
-    "lint": "eslint src --ext ts",
+    "lint": "eslint . --ext ts",
     "format": "prettier --write src",
     "test": "node ./out/test/runTest.js",
+    "test:unit": "vitest run src/test",
+    "test:all": "vitest run src/test && cd webview-ui && npm run test:unit",
     "build:webview": "cd webview-ui && npm run build",
     "dev:webview": "cd webview-ui && npm run dev",
     "package": "npx @vscode/vsce package",
@@ -221,10 +223,12 @@
     "@types/vscode": "^1.80.0",
     "@typescript-eslint/eslint-plugin": "^5.59.1",
     "@typescript-eslint/parser": "^5.59.1",
+    "@vitest/coverage-v8": "^4.0.18",
     "@vscode/test-electron": "^2.5.2",
     "eslint": "^8.41.0",
     "prettier": "^3.0.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "vitest": "^4.0.18"
   },
   "dependencies": {
     "sqlite3": "^5.1.7"

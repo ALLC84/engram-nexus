@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "noEmit": true
+  },
+  "include": ["vitest.config.ts", "src/test/**/*"],
+  "exclude": ["node_modules", "out", "webview-ui"]
+}
