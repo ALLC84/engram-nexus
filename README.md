@@ -36,6 +36,9 @@ Stack multiple filters simultaneously — all filtering happens in SQL/backend, 
 - **Focus Mode** — Isolate a single project in the graph via the crosshair dropdown, hiding all other projects. Resetting focus restores the full view.
 - **Collapse/Expand** — Double-click a project node (or use the global toggle button) to collapse or expand entire projects at once.
 
+### List View Mode
+Switch between the force-directed graph and a flat, chronological list of your observations with a single button in the toolbar. The list renders the same data as the graph — all active filters (search, date, type, Focus Mode) apply identically to both views. Each entry shows a **project pill** that activates Focus Mode for that project on click. Your preferred default view (`graph` or `list`) can be saved via `nexus.defaultViewMode`.
+
 ### Knowledge Trail (Time Machine)
 Select any node and click **Show Trail** to transform the graph into a top-down chronological tree. Trails group related observations by `topic_key` (same theme across sessions) or `session_id` (same work session). Use **Copy Entire Trail** to generate a markdown-formatted report of the entire decision thread.
 
@@ -63,6 +66,7 @@ Open VS Code Settings (`Cmd+,` → Extensions → Engram Nexus) to customize the
 | `nexus.rootNodeLabel` | `"SOMA"` | Label for the central root node. 1–30 characters. |
 | `nexus.maxNodes` | `100` | Max observations loaded in the graph (10–500). Higher values may impact performance. |
 | `nexus.defaultGraphState` | `"expanded"` | Whether projects start collapsed or expanded on load. |
+| `nexus.defaultViewMode` | `"graph"` | Default view when the extension opens. Options: `graph`, `list`. |
 | `nexus.filterPanelSide` | `"top"` | Where the semantic type filter panel appears. Options: `left`, `right`, `top`, `bottom`, `none`. |
 | `nexus.calendarDefaultCorner` | `"right"` | Default corner for the floating calendar. Options: `left`, `right`. |
 | `nexus.floatCalendarThreshold` | `380` | Panel width (px) at which the calendar switches to floating overlay mode. |
@@ -110,6 +114,7 @@ src/
 webview-ui/src/
   components/
     Graph/NetworkGraph.tsx    — Force-directed graph (react-force-graph-2d)
+    List/ListView.tsx         — Chronological flat list (alternative to graph)
     Sidebar/NodeDetails.tsx   — Node metadata + Inject Context + Show Trail
     Sidebar/FilterPanel.tsx   — Observation type filter buttons
     Timeline/TimelineView.tsx — Chronological trail view + Copy Entire Trail
@@ -131,6 +136,12 @@ webview-ui/src/
 ---
 
 ## Release Notes
+
+### 1.3.0
+- **List View Mode** — New chronological list as an alternative to the graph, toggled with a toolbar button. All active filters apply to both views identically.
+- **Project Pill** — Each observation in list and trail views shows a clickable project badge that activates Focus Mode for that project.
+- **`nexus.defaultViewMode` setting** — Persist the preferred view (`graph` or `list`) across sessions.
+- **Smart filter panel relocation** — When switching to list mode, the filter panel automatically moves to `top` and restores the user's original position on switching back.
 
 ### 1.2.0
 - **Focus Mode** — Isolate a single project in the graph via a custom dropdown.
