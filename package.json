@@ -2,7 +2,7 @@
   "name": "engram-nexus",
   "displayName": "Engram Nexus",
   "description": "Visualizing Engram observations as a knowledge graph",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "publisher": "ALLC84",
   "icon": "resources/icon.png",
   "repository": {
@@ -84,6 +84,21 @@
           "scope": "window",
           "order": 3
         },
+        "nexus.defaultViewMode": {
+          "type": "string",
+          "enum": [
+            "graph",
+            "list"
+          ],
+          "enumDescriptions": [
+            "Open the extension showing the interactive force-directed graph.",
+            "Open the extension showing the chronological list of memories."
+          ],
+          "default": "graph",
+          "description": "Default view when the extension opens: interactive graph or chronological list.",
+          "scope": "window",
+          "order": 4
+        },
         "nexus.filterPanelSide": {
           "type": "string",
           "enum": [
@@ -96,7 +111,7 @@
           "default": "top",
           "description": "Determines where the semantic filter panel will be rendered, or 'none' to disable it.",
           "scope": "window",
-          "order": 4
+          "order": 5
         },
         "nexus.calendarDefaultCorner": {
           "type": "string",

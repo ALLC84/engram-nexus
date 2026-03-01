@@ -4,9 +4,11 @@ import { NetworkGraph } from "./components/Graph/NetworkGraph";
 import { Calendar } from "./components/Calendar";
 import { NodeDetails } from "./components/Sidebar/NodeDetails";
 import { TimelineView } from "./components/Timeline/TimelineView";
+import { ListView } from "./components/List/ListView";
 import { FilterPanel } from "./components/Sidebar/FilterPanel";
 import { IconButton } from "./components/ui/IconButton";
-import { OBSERVATION_TYPES, GRAPH_STATES } from "./constants/types";
+import { OBSERVATION_TYPES, GRAPH_STATES, VIEW_MODES } from "./constants/types";
+import type { ViewMode } from "./constants/types";
 import { IPC_CHANNELS } from "./constants/ipc";
 import { useGraphData } from "./hooks/useGraphData";
 import { useGraphSettings } from "./hooks/useGraphSettings";
@@ -22,6 +24,8 @@ import {
   FolderOpen,
   Folder,
   Crosshair,
+  List,
+  Network,
 } from "lucide-react";
 import type { EngramNode } from "./types/graph.d";
 
@@ -34,6 +38,7 @@ function App() {
     floatThreshold,
     filterPanelSide,
     defaultGraphState,
+    defaultViewMode,
     settingsLoaded,
     isDark,
     nodeColors,
@@ -57,6 +62,8 @@ function App() {
   const [focusProject, setFocusProject] = useState<string | null>(null);
   const [graphSize, setGraphSize] = useState({ width: 0, height: 0 });
   const [isFocusOpen, setIsFocusOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>(VIEW_MODES.GRAPH);
+  const hasInitializedViewMode = useRef(false);
 
   const graphContainerRef = useRef<HTMLDivElement>(null);
   const hasInitializedProjectClustering = useRef(false);
@@ -73,6 +80,11 @@ function App() {
 
   // Float mode: calendar becomes absolute overlay when panel is wide enough
   const isFloating = graphSize.width > floatThreshold;
+
+  // In list mode, relocate the filter panel to the top so it doesn't overlap list items.
+  // The user's setting is preserved in filterPanelSide and restored when switching back.
+  const effectiveFilterPanelSide =
+    viewMode === "list" && filterPanelSide !== "none" ? "top" : filterPanelSide;
 
   // ── Interactions ──────────────────────────────────────────────────────────
   const toggleProjectCollapse = (projectId: string) => {
@@ -173,6 +185,13 @@ function App() {
   }, [settingsLoaded, visibleProjectIds, defaultGraphState]);
 
   useEffect(() => {
+    if (settingsLoaded && !hasInitializedViewMode.current) {
+      setViewMode(defaultViewMode);
+      hasInitializedViewMode.current = true;
+    }
+  }, [settingsLoaded, defaultViewMode]);
+
+  useEffect(() => {
     const onOutsideClick = (e: MouseEvent) => {
       if (focusDropdownRef.current && !focusDropdownRef.current.contains(e.target as Node)) {
         setIsFocusOpen(false);
@@ -224,6 +243,20 @@ function App() {
               loading={isLoading}
             />
           </div>
+          <IconButton
+            onClick={() => setViewMode((v) => (v === "graph" ? "list" : "graph"))}
+            active={viewMode === "list"}
+            activeClassName="text-nexus-accent hover:bg-nexus-border"
+            inactiveClassName="hover:bg-nexus-border"
+            tooltip={viewMode === "graph" ? "Switch to list view" : "Switch to graph view"}
+            className="flex items-center justify-center w-9.5 h-9.5 rounded-md shrink-0"
+          >
+            {viewMode === "graph" ? (
+              <List size={16} className="text-nexus-text-muted" />
+            ) : (
+              <Network size={16} className="text-nexus-accent" />
+            )}
+          </IconButton>
           {allProjectIds.length > 0 && (
             <div ref={focusDropdownRef} className="relative shrink-0">
               <IconButton
@@ -273,14 +306,20 @@ function App() {
             onContextMenu={(e) => e.preventDefault()}
             className="flex-1 min-h-0 relative rounded-md border border-nexus-border overflow-hidden bg-nexus-sidebar/10"
           >
-            {filterPanelSide !== "none" && (
+            {effectiveFilterPanelSide !== "none" && (
               <FilterPanel
-                side={filterPanelSide}
+                side={effectiveFilterPanelSide}
                 activeFilter={activeFilter}
                 onFilterSelect={setActiveFilter}
               />
             )}
-            {graphData.nodes.length > 0 && graphSize.width > 0 ? (
+            {viewMode === "list" ? (
+              <ListView
+                nodes={graphData.nodes}
+                onProjectClick={handleFocusProject}
+                filterPanelSide={effectiveFilterPanelSide}
+              />
+            ) : graphData.nodes.length > 0 && graphSize.width > 0 ? (
               <NetworkGraph
                 data={graphData}
                 onNodeClick={handleNodeClick}

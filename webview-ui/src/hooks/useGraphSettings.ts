@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { vscode } from "../vscode";
 import { IPC_CHANNELS } from "../constants/ipc";
-import { GRAPH_STATES, FILTER_PANEL_SIDES, FLOAT_CORNERS } from "../constants/types";
-import type { FilterPanelSide, FloatCorner, GraphState } from "../constants/types";
+import { GRAPH_STATES, FILTER_PANEL_SIDES, FLOAT_CORNERS, VIEW_MODES } from "../constants/types";
+import type { FilterPanelSide, FloatCorner, GraphState, ViewMode } from "../constants/types";
 import type { NexusSettings } from "../types/graph.d";
 
 /**
@@ -16,6 +16,7 @@ export function useGraphSettings() {
   const [floatThreshold, setFloatThreshold] = useState(380);
   const [filterPanelSide, setFilterPanelSide] = useState<FilterPanelSide>(FILTER_PANEL_SIDES.TOP);
   const [defaultGraphState, setDefaultGraphState] = useState<GraphState>(GRAPH_STATES.EXPANDED);
+  const [defaultViewMode, setDefaultViewMode] = useState<ViewMode>(VIEW_MODES.GRAPH);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [nodeColors, setNodeColors] = useState<Record<string, string>>({});
   // Lazy initializer reads the DOM once at mount — avoids a synchronous setState
@@ -48,6 +49,7 @@ export function useGraphSettings() {
         if (s.floatCalendarThreshold) setFloatThreshold(s.floatCalendarThreshold);
         if (s.filterPanelSide) setFilterPanelSide(s.filterPanelSide as FilterPanelSide);
         if (s.defaultGraphState) setDefaultGraphState(s.defaultGraphState as GraphState);
+        if (s.defaultViewMode) setDefaultViewMode(s.defaultViewMode as ViewMode);
         if (s.nodeColors) setNodeColors(s.nodeColors);
         setSettingsLoaded(true);
       }
@@ -84,6 +86,7 @@ export function useGraphSettings() {
     floatThreshold,
     filterPanelSide,
     defaultGraphState,
+    defaultViewMode,
     settingsLoaded,
     isDark,
     nodeColors,

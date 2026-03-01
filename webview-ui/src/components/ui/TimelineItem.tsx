@@ -5,9 +5,10 @@ import type { ObservationDetails } from "../../types/graph.d";
 interface TimelineItemProps {
   obs: ObservationDetails;
   isLast: boolean;
+  onProjectClick?: (project: string) => void;
 }
 
-export const TimelineItem: React.FC<TimelineItemProps> = ({ obs, isLast }) => {
+export const TimelineItem: React.FC<TimelineItemProps> = ({ obs, isLast, onProjectClick }) => {
   return (
     <div className="relative pl-6">
       {!isLast && (
@@ -17,10 +18,25 @@ export const TimelineItem: React.FC<TimelineItemProps> = ({ obs, isLast }) => {
 
       <div className="bg-nexus-bg/50 border border-nexus-border/50 rounded-md p-3 group hover:border-nexus-accent/50 transition-colors">
         <div className="flex justify-between items-start mb-2">
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-nexus-accent bg-nexus-accent/10 px-1.5 py-0.5 rounded">
-            {obs.type}
-          </span>
-          <span className="text-[10px] text-nexus-text-muted">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-nexus-accent bg-nexus-accent/10 px-1.5 py-0.5 rounded">
+              {obs.type}
+            </span>
+            {obs.project &&
+              (onProjectClick ? (
+                <button
+                  onClick={() => onProjectClick(obs.project!)}
+                  className="text-[10px] font-medium px-1.5 py-0.5 rounded text-nexus-text-muted bg-nexus-border hover:bg-nexus-accent/20 hover:text-nexus-accent cursor-pointer transition-colors"
+                >
+                  {obs.project}
+                </button>
+              ) : (
+                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded text-nexus-text-muted bg-nexus-border">
+                  {obs.project}
+                </span>
+              ))}
+          </div>
+          <span className="text-[10px] text-nexus-text-muted shrink-0">
             {new Date(obs.created_at).toLocaleDateString()}
           </span>
         </div>

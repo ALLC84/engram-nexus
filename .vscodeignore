@@ -21,6 +21,7 @@ webview-ui/tailwind.config.ts
 !out/**/*.ts
 
 tests/**
+vitest.config.ts
 vsc-extension-quickstart.md
 webpack.config.js
 yarn.lock

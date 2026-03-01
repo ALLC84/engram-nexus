@@ -1,5 +1,17 @@
 # AGENT.md — Engram Nexus
 
+## MANDATORY: Before Any Implementation
+
+**At the start of every session, before writing a single line of code:**
+
+1. Read `.agent/workflows/01-start-task.md` — it classifies the task and determines the correct protocol.
+2. If the task is non-trivial (new feature, multi-file change, design decision) → activate SDD Orchestrator mode by reading `.agent/workflows/sdd-init.md`.
+3. If the task is minor (style fix, typo, single-file patch) → execute directly per `.agent/rules/`.
+
+**This is not optional.** Skipping this step means skipping the architectural gate that prevents unreviewed multi-file changes.
+
+---
+
 ## Project Goal
 
 VS Code extension that reads `~/.engram/engram.db` (read-only) and renders observations as an interactive, force-directed knowledge graph. The user explores their developer memory visually: decisions, patterns, bug fixes, features, and architectural choices.
@@ -30,8 +42,8 @@ Communication between modules is **exclusively via IPC** (`postMessage` / `onDid
 
 ## Development Workflow
 
-- **Minor fixes / style / single-file changes:** implement directly following `.agent/rules/`.
-- **New features / complex bugs / multi-file refactors:** start with `/sdd-init` (SDD Orchestrator mode). See `.agent/workflows/sdd-init.md`.
-- For detailed conventions: `.agent/rules/`
-- For workflows and protocols: `.agent/workflows/`
-- For module-specific context: `src/AGENT.md` (backend) · `webview-ui/AGENT.md` (frontend)
+**Entry point for every task:** `.agent/workflows/01-start-task.md` — read it, classify, then proceed.
+
+- Conventions: `.agent/rules/`
+- SDD Orchestrator protocol: `.agent/workflows/sdd-init.md`
+- Module context: `src/AGENT.md` (backend) · `webview-ui/AGENT.md` (frontend)

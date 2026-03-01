@@ -29,6 +29,13 @@ export const GRAPH_STATES = {
 
 export type GraphState = (typeof GRAPH_STATES)[keyof typeof GRAPH_STATES];
 
+export const VIEW_MODES = {
+  GRAPH: "graph",
+  LIST: "list",
+} as const;
+
+export type ViewMode = (typeof VIEW_MODES)[keyof typeof VIEW_MODES];
+
 /**
  * Valid positions for the filter panel overlay within the graph canvas.
  */

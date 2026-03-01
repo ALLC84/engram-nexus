@@ -46,5 +46,6 @@ export const CONFIG_KEYS = {
   FLOAT_CALENDAR_THRESHOLD: 'floatCalendarThreshold',
   FILTER_PANEL_SIDE: 'filterPanelSide',
   DEFAULT_GRAPH_STATE: 'defaultGraphState',
+  DEFAULT_VIEW_MODE: 'defaultViewMode',
   COLORS: 'colors',
 } as const;

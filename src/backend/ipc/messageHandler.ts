@@ -19,6 +19,7 @@ function getNexusConfig() {
     floatCalendarThreshold: config.get<number>(CONFIG_KEYS.FLOAT_CALENDAR_THRESHOLD, 380),
     filterPanelSide: config.get<string>(CONFIG_KEYS.FILTER_PANEL_SIDE, 'left'),
     defaultGraphState: config.get<string>(CONFIG_KEYS.DEFAULT_GRAPH_STATE, GRAPH_STATES.COLLAPSED),
+    defaultViewMode: config.get<string>(CONFIG_KEYS.DEFAULT_VIEW_MODE, 'graph'),
     nodeColors: {
       decision:        colors.get<string>('decision',        '#f59e0b'),
       architecture:    colors.get<string>('architecture',    '#3b82f6'),

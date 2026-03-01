@@ -96,6 +96,7 @@ export interface NexusSettings {
   floatCalendarThreshold: number;
   filterPanelSide: string;
   defaultGraphState: string;
+  defaultViewMode: string;
   nodeColors?: Record<string, string>;
 }
 
