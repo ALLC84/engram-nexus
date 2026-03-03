@@ -50,6 +50,19 @@ export const FILTER_PANEL_SIDES = {
 export type FilterPanelSide = (typeof FILTER_PANEL_SIDES)[keyof typeof FILTER_PANEL_SIDES];
 
 /**
+ * Valid positions for the Sentinel telemetry panel overlay.
+ */
+export const SENTINEL_PANEL_SIDES = {
+  TOP_LEFT: "top-left",
+  TOP_RIGHT: "top-right",
+  BOTTOM_LEFT: "bottom-left",
+  BOTTOM_RIGHT: "bottom-right",
+  NONE: "none",
+} as const;
+
+export type SentinelPanelSide = (typeof SENTINEL_PANEL_SIDES)[keyof typeof SENTINEL_PANEL_SIDES];
+
+/**
  * Valid corners for the floating calendar overlay.
  */
 export const FLOAT_CORNERS = {

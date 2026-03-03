@@ -1,3 +1,5 @@
+import type { SentinelPanelSide } from "../constants/types";
+
 // ── Core domain types ────────────────────────────────────────────────────────
 
 /**
@@ -95,6 +97,7 @@ export interface NexusSettings {
   calendarDefaultCorner: string;
   floatCalendarThreshold: number;
   filterPanelSide: string;
+  sentinelPanelSide?: SentinelPanelSide;
   defaultGraphState: string;
   defaultViewMode: string;
   nodeColors?: Record<string, string>;

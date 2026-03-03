@@ -12,9 +12,15 @@ interface TimelineViewProps {
   /** Pre-fetched, chronologically sorted observations from the backend. */
   observations: ObservationDetails[];
   onClose: () => void;
+  bottomOffsetClass?: string;
 }
 
-export const TimelineView: React.FC<TimelineViewProps> = ({ trail, observations, onClose }) => {
+export const TimelineView: React.FC<TimelineViewProps> = ({
+  trail,
+  observations,
+  onClose,
+  bottomOffsetClass = "bottom-3",
+}) => {
   const handleCopyTrail = () => {
     let markdown = `# Knowledge Trail\n\n**Topic Key:** ${trail.topicKey || "N/A"}\n**Session ID:** ${trail.sessionId || "N/A"}\n\n---\n\n`;
 
@@ -31,7 +37,9 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ trail, observations,
   if (observations.length === 0) return null;
 
   return (
-    <div className="absolute inset-y-3 right-3 w-80 z-50 bg-nexus-bg border border-nexus-border shadow-xl rounded-md animate-[slideInRight_0.3s_ease-out] flex flex-col overflow-hidden">
+    <div
+      className={`absolute top-3 ${bottomOffsetClass} right-3 w-80 z-[90] bg-nexus-bg border border-nexus-border shadow-xl rounded-md animate-[slideInRight_0.3s_ease-out] flex flex-col overflow-hidden`}
+    >
       <PanelHeader onClose={onClose}>
         <div className="flex items-center gap-2 text-nexus-text-bright">
           <Clock size={16} className="text-nexus-accent" />

@@ -5,6 +5,7 @@ import { Calendar } from "./components/Calendar";
 import { NodeDetails } from "./components/Sidebar/NodeDetails";
 import { TimelineView } from "./components/Timeline/TimelineView";
 import { ListView } from "./components/List/ListView";
+import { SentinelTelemetryPanel } from "./components/Overlay/SentinelTelemetryPanel";
 import { FilterPanel } from "./components/Sidebar/FilterPanel";
 import { IconButton } from "./components/ui/IconButton";
 import { OBSERVATION_TYPES, GRAPH_STATES, VIEW_MODES } from "./constants/types";
@@ -13,6 +14,8 @@ import { IPC_CHANNELS } from "./constants/ipc";
 import { useGraphData } from "./hooks/useGraphData";
 import { useGraphSettings } from "./hooks/useGraphSettings";
 import { useClickTracker } from "./hooks/useClickTracker";
+import { useSentinelTelemetry } from "./hooks/useSentinelTelemetry";
+import { useOverlayLayout } from "./hooks/useOverlayLayout";
 import {
   Calendar as CalendarIcon,
   Globe,
@@ -26,6 +29,9 @@ import {
   Crosshair,
   List,
   Network,
+  Compass,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import type { EngramNode } from "./types/graph.d";
 
@@ -37,6 +43,7 @@ function App() {
     floatCorner,
     floatThreshold,
     filterPanelSide,
+    sentinelPanelSide,
     defaultGraphState,
     defaultViewMode,
     settingsLoaded,
@@ -45,6 +52,11 @@ function App() {
     toggleTheme,
     toggleCorner,
   } = useGraphSettings();
+  const {
+    events: sentinelEvents,
+    latestEvent: latestSentinelEvent,
+    isConnected: isSentinelConnected,
+  } = useSentinelTelemetry();
 
   // ── UI State ──────────────────────────────────────────────────────────────
   const [searchTerm, setSearchTerm] = useState("");
@@ -63,6 +75,8 @@ function App() {
   const [graphSize, setGraphSize] = useState({ width: 0, height: 0 });
   const [isFocusOpen, setIsFocusOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>(VIEW_MODES.GRAPH);
+  const [isSentinelPanelOpen, setIsSentinelPanelOpen] = useState(false);
+  const [centerGraphSignal, setCenterGraphSignal] = useState(0);
   const hasInitializedViewMode = useRef(false);
 
   const graphContainerRef = useRef<HTMLDivElement>(null);
@@ -81,10 +95,24 @@ function App() {
   // Float mode: calendar becomes absolute overlay when panel is wide enough
   const isFloating = graphSize.width > floatThreshold;
 
-  // In list mode, relocate the filter panel to the top so it doesn't overlap list items.
-  // The user's setting is preserved in filterPanelSide and restored when switching back.
-  const effectiveFilterPanelSide =
-    viewMode === "list" && filterPanelSide !== "none" ? "top" : filterPanelSide;
+  const {
+    detailPanelBottomOffsetClass,
+    effectiveFilterPanelSide,
+    shouldDockCenterButton,
+    showSentinelFeatures,
+    shouldForceCloseSentinelPanel,
+    filterPanelClassName,
+    sentinelPanelClassName,
+  } =
+    useOverlayLayout({
+      viewMode,
+      isFloating,
+      floatCorner,
+      filterPanelSide,
+      sentinelPanelSide,
+      isSentinelPanelOpen,
+      showCalendar,
+    });
 
   // ── Interactions ──────────────────────────────────────────────────────────
   const toggleProjectCollapse = (projectId: string) => {
@@ -201,6 +229,10 @@ function App() {
     return () => document.removeEventListener("mousedown", onOutsideClick);
   }, [isFocusOpen]);
 
+  useEffect(() => {
+    if (shouldForceCloseSentinelPanel) setIsSentinelPanelOpen(false);
+  }, [shouldForceCloseSentinelPanel]);
+
   // ── Event Handlers ────────────────────────────────────────────────────────
 
   const handleSearch = (e?: React.SyntheticEvent) => {
@@ -295,6 +327,14 @@ function App() {
         </div>
 
         <main className="flex-1 relative flex flex-col min-h-0 overflow-hidden px-3">
+          {showSentinelFeatures && isSentinelPanelOpen && (
+            <SentinelTelemetryPanel
+              events={sentinelEvents}
+              isConnected={isSentinelConnected}
+              side={sentinelPanelSide}
+              className={sentinelPanelClassName}
+            />
+          )}
           {error && (
             <div className="absolute top-0 left-3 right-3 z-50 bg-(--vscode-inputValidation-errorBackground,rgba(100,0,0,0.85)) border border-(--vscode-inputValidation-errorBorder,#be1100) text-nexus-text-bright p-2 rounded text-xs animate-fade-in shadow-md">
               <strong>Error:</strong> {error}
@@ -311,6 +351,7 @@ function App() {
                 side={effectiveFilterPanelSide}
                 activeFilter={activeFilter}
                 onFilterSelect={setActiveFilter}
+                className={filterPanelClassName}
               />
             )}
             {viewMode === "list" ? (
@@ -334,6 +375,9 @@ function App() {
                 isFloating={isFloating}
                 floatCorner={floatCorner}
                 nodeColors={nodeColors}
+                lastSentinelEvent={latestSentinelEvent}
+                showFloatingCenterButton={!shouldDockCenterButton}
+                centerGraphSignal={centerGraphSignal}
               />
             ) : (
               !isLoading && (
@@ -364,11 +408,7 @@ function App() {
                 >
                   <CalendarIcon size={16} />
                 </IconButton>
-                <IconButton
-                  onClick={toggleTheme}
-                  tooltip="Toggle theme"
-                  tooltipPosition="top-left"
-                >
+                <IconButton onClick={toggleTheme} tooltip="Toggle theme" tooltipPosition="top-left">
                   {isDark ? <Sun size={16} /> : <Moon size={16} />}
                 </IconButton>
                 {allProjectIds.length > 0 && (
@@ -391,8 +431,49 @@ function App() {
                     {floatCorner === "right" ? <PanelLeft size={16} /> : <PanelRight size={16} />}
                   </IconButton>
                 )}
+                {viewMode === VIEW_MODES.GRAPH && shouldDockCenterButton && (
+                  <IconButton
+                    onClick={() => setCenterGraphSignal((value) => value + 1)}
+                    tooltip="Center graph"
+                    tooltipPosition="top-left"
+                  >
+                    <Compass size={16} />
+                  </IconButton>
+                )}
               </div>
               <div className="flex items-center gap-2">
+                {showSentinelFeatures && (
+                  <IconButton
+                    onClick={() => setIsSentinelPanelOpen((open) => !open)}
+                    active={isSentinelPanelOpen}
+                    activeClassName="text-nexus-accent hover:bg-nexus-border"
+                    inactiveClassName="hover:bg-nexus-border"
+                    tooltip={
+                      isSentinelPanelOpen
+                        ? "Hide Sentinel feed"
+                        : isSentinelConnected
+                          ? "Show Sentinel feed (live)"
+                          : "Show Sentinel feed (reconnecting)"
+                    }
+                    tooltipPosition="top-right"
+                  >
+                    {isSentinelPanelOpen ? (
+                      <Eye
+                        size={16}
+                        className={
+                          isSentinelConnected ? "text-emerald-400" : "text-nexus-text-muted"
+                        }
+                      />
+                    ) : (
+                      <EyeOff
+                        size={16}
+                        className={
+                          isSentinelConnected ? "text-emerald-400" : "text-nexus-text-muted"
+                        }
+                      />
+                    )}
+                  </IconButton>
+                )}
                 {(searchTerm ||
                   startDate ||
                   activeFilter ||
@@ -424,6 +505,7 @@ function App() {
             <TimelineView
               trail={activeTrail}
               observations={trailObservations}
+              bottomOffsetClass={detailPanelBottomOffsetClass}
               onClose={() => {
                 setActiveTrail(null);
                 clearTrail();
@@ -432,6 +514,7 @@ function App() {
           ) : selectedNode ? (
             <NodeDetails
               node={selectedNode}
+              bottomOffsetClass={detailPanelBottomOffsetClass}
               onClose={() => setSelectedNode(null)}
               onShowTrail={(topicKey, sessionId) => {
                 const trail = { topicKey, sessionId };

@@ -1,8 +1,20 @@
 import { useState, useEffect } from "react";
 import { vscode } from "../vscode";
 import { IPC_CHANNELS } from "../constants/ipc";
-import { GRAPH_STATES, FILTER_PANEL_SIDES, FLOAT_CORNERS, VIEW_MODES } from "../constants/types";
-import type { FilterPanelSide, FloatCorner, GraphState, ViewMode } from "../constants/types";
+import {
+  GRAPH_STATES,
+  FILTER_PANEL_SIDES,
+  FLOAT_CORNERS,
+  VIEW_MODES,
+  SENTINEL_PANEL_SIDES,
+} from "../constants/types";
+import type {
+  FilterPanelSide,
+  FloatCorner,
+  GraphState,
+  ViewMode,
+  SentinelPanelSide,
+} from "../constants/types";
 import type { NexusSettings } from "../types/graph.d";
 
 /**
@@ -15,6 +27,9 @@ export function useGraphSettings() {
   const [floatCorner, setFloatCorner] = useState<FloatCorner>(FLOAT_CORNERS.RIGHT);
   const [floatThreshold, setFloatThreshold] = useState(380);
   const [filterPanelSide, setFilterPanelSide] = useState<FilterPanelSide>(FILTER_PANEL_SIDES.TOP);
+  const [sentinelPanelSide, setSentinelPanelSide] = useState<SentinelPanelSide>(
+    SENTINEL_PANEL_SIDES.NONE
+  );
   const [defaultGraphState, setDefaultGraphState] = useState<GraphState>(GRAPH_STATES.EXPANDED);
   const [defaultViewMode, setDefaultViewMode] = useState<ViewMode>(VIEW_MODES.GRAPH);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
@@ -48,6 +63,7 @@ export function useGraphSettings() {
         if (s.calendarDefaultCorner) setFloatCorner(s.calendarDefaultCorner as FloatCorner);
         if (s.floatCalendarThreshold) setFloatThreshold(s.floatCalendarThreshold);
         if (s.filterPanelSide) setFilterPanelSide(s.filterPanelSide as FilterPanelSide);
+        if (s.sentinelPanelSide) setSentinelPanelSide(s.sentinelPanelSide as SentinelPanelSide);
         if (s.defaultGraphState) setDefaultGraphState(s.defaultGraphState as GraphState);
         if (s.defaultViewMode) setDefaultViewMode(s.defaultViewMode as ViewMode);
         if (s.nodeColors) setNodeColors(s.nodeColors);
@@ -85,6 +101,7 @@ export function useGraphSettings() {
     floatCorner,
     floatThreshold,
     filterPanelSide,
+    sentinelPanelSide,
     defaultGraphState,
     defaultViewMode,
     settingsLoaded,

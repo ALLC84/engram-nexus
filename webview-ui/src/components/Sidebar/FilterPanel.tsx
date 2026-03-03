@@ -8,6 +8,7 @@ interface FilterPanelProps {
   side: "left" | "right" | "top" | "bottom" | "none";
   activeFilter: string | null;
   onFilterSelect: (filter: string | null) => void;
+  className?: string;
 }
 
 const filterOptions = [
@@ -75,7 +76,12 @@ const sideToPositionClasses: Record<string, string> = {
   bottom: "left-1/2 -translate-x-1/2 bottom-3 flex-row",
 };
 
-export const FilterPanel: React.FC<FilterPanelProps> = ({ side, activeFilter, onFilterSelect }) => {
+export const FilterPanel: React.FC<FilterPanelProps> = ({
+  side,
+  activeFilter,
+  onFilterSelect,
+  className,
+}) => {
   if (side === "none") return null;
 
   const tooltipPosition = sideToTooltipPosition[side];
@@ -83,7 +89,7 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ side, activeFilter, on
 
   return (
     <div
-      className={`absolute ${positionClasses} z-40 flex gap-2 p-2 rounded-xl border border-nexus-border/50 bg-nexus-sidebar/80 backdrop-blur-md shadow-lg`}
+      className={`absolute ${positionClasses} z-40 flex gap-2 p-2 rounded-xl border border-nexus-border/50 bg-nexus-sidebar/80 backdrop-blur-md shadow-lg ${className ?? ""}`}
     >
       {filterOptions.map((opt) => {
         const Icon = opt.icon;

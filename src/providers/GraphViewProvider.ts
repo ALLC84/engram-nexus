@@ -73,7 +73,7 @@ export class GraphViewProvider implements vscode.WebviewViewProvider {
     });
 
     const nonce = getNonce();
-    const csp = `default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}' ${webview.cspSource}; img-src ${webview.cspSource} https:; font-src ${webview.cspSource}; connect-src ${webview.cspSource} https:;`;
+    const csp = `default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}' ${webview.cspSource}; img-src ${webview.cspSource} https:; font-src ${webview.cspSource}; connect-src ${webview.cspSource} https: http://127.0.0.1:7438 http://localhost:7438;`;
 
     htmlContent = htmlContent.replace(
       '<head>',

@@ -1,9 +1,10 @@
-import { useCallback, useRef, type FC } from "react";
+import { useCallback, useEffect, useRef, type FC } from "react";
 import { IconButton } from "../ui/IconButton";
 import { Compass } from "lucide-react";
 import ForceGraph2D from "react-force-graph-2d";
 import { useSmartCamera } from "../../hooks/useSmartCamera";
 import type { EngramGraphData, EngramNode, EngramLink } from "../../types/graph.d";
+import { SENTINEL_EVENT_TYPES, type SentinelTelemetryEvent } from "../../types/sentinel";
 
 // ── Module-level render constants ─────────────────────────────────────────────
 // Allocating array literals inside callbacks (or returning them from accessors)
@@ -37,6 +38,54 @@ const TYPE_COLORS: Record<string, string> = {
 const SOMA_COLOR = "#ffffff";
 const PROJECT_COLOR = "#7aa2f7";
 const FALLBACK_COLOR = "#cccccc";
+const INVOCATION_PULSE_MS = 1200;
+const BLOCK_PULSE_MS = 1500;
+const MAX_PARTICLE_EMITS = 6;
+const INVOCATION_GREEN = "34,197,94";
+const BLOCK_RED = "239,68,68";
+
+interface SentinelPulse {
+  type: "invocation" | "block";
+  startedAt: number;
+  endsAt: number;
+}
+
+const canonicalToolKey = (value: unknown): string | null => {
+  if (typeof value !== "string") return null;
+  const canonical = value.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return canonical.length > 0 ? canonical : null;
+};
+
+const extractToolCandidates = (value: unknown): string[] => {
+  if (typeof value !== "string") return [];
+  const raw = value.trim().toLowerCase();
+  if (!raw) return [];
+
+  const candidates = new Set<string>([raw]);
+  const separators = /[\/\s.:#()\-\[\]]+/g;
+  raw
+    .split(separators)
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0)
+    .forEach((part) => candidates.add(part));
+
+  if (raw.includes("__")) {
+    const parts = raw.split("__").filter((part) => part.length > 0);
+    parts.forEach((part) => candidates.add(part));
+    candidates.add(parts[parts.length - 1] ?? raw);
+  }
+
+  const canonical = canonicalToolKey(raw);
+  if (canonical) candidates.add(canonical);
+
+  return Array.from(candidates);
+};
+
+const addNodeAlias = (aliases: Map<string, EngramNode>, alias: unknown, node: EngramNode): void => {
+  extractToolCandidates(alias).forEach((key) => {
+    if (!aliases.has(key)) aliases.set(key, node);
+  });
+};
 
 interface NetworkGraphProps {
   data: EngramGraphData;
@@ -48,6 +97,9 @@ interface NetworkGraphProps {
   isFloating?: boolean;
   floatCorner?: "left" | "right";
   nodeColors?: Record<string, string>;
+  lastSentinelEvent?: SentinelTelemetryEvent | null;
+  showFloatingCenterButton?: boolean;
+  centerGraphSignal?: number;
 }
 
 export const NetworkGraph: FC<NetworkGraphProps> = ({
@@ -60,8 +112,15 @@ export const NetworkGraph: FC<NetworkGraphProps> = ({
   isFloating = false,
   floatCorner = "right",
   nodeColors,
+  lastSentinelEvent = null,
+  showFloatingCenterButton = true,
+  centerGraphSignal = 0,
 }) => {
   const { fgRef, zoomToFit, focusNode } = useSmartCamera(data);
+  const sentinelPulsesRef = useRef<Map<string | number, SentinelPulse>>(new Map());
+  const nodeLookupRef = useRef<Map<string, EngramNode>>(new Map());
+  const nodeLinksRef = useRef<Map<string, EngramLink[]>>(new Map());
+  const animationFrameRef = useRef<number | null>(null);
 
   // ── Dynamic colour ref ───────────────────────────────────────────────────────
   // Synced each render so the stable resolveColor callback ([] deps) can read
@@ -102,6 +161,142 @@ export const NetworkGraph: FC<NetworkGraphProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [onNodeClick]
   );
+
+  const ensurePulseAnimationLoop = useCallback(() => {
+    if (animationFrameRef.current !== null) return;
+
+    const tick = (timestamp: number) => {
+      let hasActivePulse = false;
+      sentinelPulsesRef.current.forEach((pulse, nodeId) => {
+        if (timestamp >= pulse.endsAt) {
+          sentinelPulsesRef.current.delete(nodeId);
+          return;
+        }
+        hasActivePulse = true;
+      });
+
+      if (!hasActivePulse) {
+        animationFrameRef.current = null;
+        return;
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (fgRef.current as any)?.refresh?.();
+      animationFrameRef.current = requestAnimationFrame(tick);
+    };
+
+    animationFrameRef.current = requestAnimationFrame(tick);
+  }, [fgRef]);
+
+  const resolveSentinelNode = useCallback(
+    (event: SentinelTelemetryEvent): EngramNode | null => {
+      const rawCandidates = [
+        event.tool,
+        event.raw.tool,
+        event.raw.toolName,
+        event.raw.tool_name,
+        event.raw.targetTool,
+        event.raw.target_tool,
+        event.summary,
+      ];
+
+      const toolCandidates = rawCandidates.flatMap((candidate) => extractToolCandidates(candidate));
+      const aliasMap = nodeLookupRef.current;
+
+      for (const candidate of toolCandidates) {
+        const matched = aliasMap.get(candidate);
+        if (matched) return matched;
+      }
+      return null;
+    },
+    []
+  );
+
+  useEffect(() => {
+    const aliases = new Map<string, EngramNode>();
+    const linksByNodeId = new Map<string, EngramLink[]>();
+
+    data.nodes.forEach((node) => {
+      // Strong link only: Sentinel tool should map to observation author/tool_name.
+      // Avoid title/name fuzziness to keep semantic integrity of highlights.
+      addNodeAlias(aliases, node.details?.author, node);
+    });
+
+    data.links.forEach((link) => {
+      const sourceNode = link.source as EngramNode | string | number;
+      const targetNode = link.target as EngramNode | string | number;
+      const sourceId =
+        typeof sourceNode === "object" && sourceNode !== null ? sourceNode.id : sourceNode;
+      const targetId =
+        typeof targetNode === "object" && targetNode !== null ? targetNode.id : targetNode;
+
+      [sourceId, targetId].forEach((candidateId) => {
+        if (candidateId === undefined || candidateId === null) return;
+        const key = String(candidateId);
+        const bucket = linksByNodeId.get(key);
+        if (bucket) {
+          bucket.push(link);
+        } else {
+          linksByNodeId.set(key, [link]);
+        }
+      });
+    });
+
+    nodeLookupRef.current = aliases;
+    nodeLinksRef.current = linksByNodeId;
+  }, [data]);
+
+  useEffect(() => {
+    if (!lastSentinelEvent) return;
+    if (
+      lastSentinelEvent.type !== SENTINEL_EVENT_TYPES.INVOCATION &&
+      lastSentinelEvent.type !== SENTINEL_EVENT_TYPES.BLOCK
+    ) {
+      return;
+    }
+
+    const targetNode = resolveSentinelNode(lastSentinelEvent);
+    if (!targetNode?.id) return;
+
+    const startedAt = performance.now();
+    const isInvocation = lastSentinelEvent.type === SENTINEL_EVENT_TYPES.INVOCATION;
+    const endsAt = startedAt + (isInvocation ? INVOCATION_PULSE_MS : BLOCK_PULSE_MS);
+
+    sentinelPulsesRef.current.set(targetNode.id, {
+      type: isInvocation ? "invocation" : "block",
+      startedAt,
+      endsAt,
+    });
+
+    if (isInvocation) {
+      const links = nodeLinksRef.current.get(String(targetNode.id)) ?? [];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const graphRef = fgRef.current as any;
+      if (typeof graphRef?.emitParticle === "function") {
+        links.slice(0, MAX_PARTICLE_EMITS).forEach((link) => {
+          graphRef.emitParticle(link);
+        });
+      }
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (fgRef.current as any)?.refresh?.();
+    ensurePulseAnimationLoop();
+  }, [ensurePulseAnimationLoop, fgRef, lastSentinelEvent, resolveSentinelNode]);
+
+  useEffect(() => {
+    return () => {
+      if (animationFrameRef.current !== null) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (centerGraphSignal <= 0) return;
+    zoomToFit();
+  }, [centerGraphSignal, zoomToFit]);
 
   // ── Stable canvas renderer ──────────────────────────────────────────────────
   // useCallback with [] deps gives a permanent stable reference.
@@ -162,6 +357,37 @@ export const NetworkGraph: FC<NetworkGraphProps> = ({
         ctx.strokeStyle = accent;
         ctx.lineWidth = 1.2 / globalScale;
         ctx.stroke();
+      }
+
+      const pulse = node.id !== undefined && node.id !== null ? sentinelPulsesRef.current.get(node.id) : undefined;
+      if (pulse) {
+        const now = performance.now();
+        const duration = Math.max(1, pulse.endsAt - pulse.startedAt);
+        const progress = Math.min(1, Math.max(0, (now - pulse.startedAt) / duration));
+        const fade = 1 - progress;
+
+        if (pulse.type === "invocation") {
+          const wave = 0.5 + 0.5 * Math.sin(progress * Math.PI * 8);
+          const ringRadius = radius + (4 + wave * 8) / globalScale;
+          ctx.beginPath();
+          ctx.arc(x, y, ringRadius, 0, 2 * Math.PI, false);
+          ctx.strokeStyle = `rgba(${INVOCATION_GREEN}, ${0.15 + fade * 0.7})`;
+          ctx.lineWidth = (1.25 + wave * 1.75) / globalScale;
+          ctx.stroke();
+        } else {
+          const oscillation = Math.abs(Math.sin(now * 0.04));
+          const ringRadius = radius + (6 + oscillation * 10) / globalScale;
+          ctx.beginPath();
+          ctx.arc(x, y, ringRadius, 0, 2 * Math.PI, false);
+          ctx.strokeStyle = `rgba(${BLOCK_RED}, ${0.35 + fade * 0.6})`;
+          ctx.lineWidth = (2 + oscillation * 3.5) / globalScale;
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.arc(x, y, radius + 2 / globalScale, 0, 2 * Math.PI, false);
+          ctx.fillStyle = `rgba(${BLOCK_RED}, ${0.08 + fade * 0.22})`;
+          ctx.fill();
+        }
       }
 
       // Semantic zoom: labels only for root/projects, or when zoomed in
@@ -242,21 +468,23 @@ export const NetworkGraph: FC<NetworkGraphProps> = ({
         d3AlphaDecay={0.02}
         d3VelocityDecay={0.3}
       />
-      <div
-        className={`absolute bottom-6 z-40 ${isFloating && floatCorner === "right" ? "left-6" : "right-6"}`}
-      >
-        <IconButton
-          onClick={zoomToFit}
-          size="none"
-          rounded="full"
-          inactiveClassName="text-nexus-text-muted hover:text-nexus-text-bright hover:bg-nexus-bg/80"
-          tooltip="Center graph"
-          tooltipPosition={isFloating && floatCorner === "right" ? "top-left" : "top-right"}
-          className="p-2 bg-nexus-sidebar border border-nexus-border shadow-lg active:scale-95"
+      {showFloatingCenterButton && (
+        <div
+          className={`absolute bottom-6 z-40 ${isFloating && floatCorner === "right" ? "left-6" : "right-6"}`}
         >
-          <Compass size={20} />
-        </IconButton>
-      </div>
+          <IconButton
+            onClick={zoomToFit}
+            size="none"
+            rounded="full"
+            inactiveClassName="text-nexus-text-muted hover:text-nexus-text-bright hover:bg-nexus-bg/80"
+            tooltip="Center graph"
+            tooltipPosition={isFloating && floatCorner === "right" ? "top-left" : "top-right"}
+            className="p-2 bg-nexus-sidebar border border-nexus-border shadow-lg active:scale-95"
+          >
+            <Compass size={20} />
+          </IconButton>
+        </div>
+      )}
     </div>
   );
 };

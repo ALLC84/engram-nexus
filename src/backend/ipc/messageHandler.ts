@@ -18,6 +18,7 @@ function getNexusConfig() {
     calendarDefaultCorner: config.get<string>(CONFIG_KEYS.CALENDAR_DEFAULT_CORNER, 'right'),
     floatCalendarThreshold: config.get<number>(CONFIG_KEYS.FLOAT_CALENDAR_THRESHOLD, 380),
     filterPanelSide: config.get<string>(CONFIG_KEYS.FILTER_PANEL_SIDE, 'left'),
+    sentinelPanelSide: config.get<string>(CONFIG_KEYS.SENTINEL_PANEL_SIDE, 'none'),
     defaultGraphState: config.get<string>(CONFIG_KEYS.DEFAULT_GRAPH_STATE, GRAPH_STATES.COLLAPSED),
     defaultViewMode: config.get<string>(CONFIG_KEYS.DEFAULT_VIEW_MODE, 'graph'),
     nodeColors: {

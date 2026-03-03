@@ -40,3 +40,10 @@ openspec/**
 .gga
 .gga-rules.md
 *.tsbuildinfo
+.env
+.env.*
+.envrc
+*.local
+tsconfig.dev.json
+npm-debug.log*
+yarn-error.log*

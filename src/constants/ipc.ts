@@ -45,6 +45,7 @@ export const CONFIG_KEYS = {
   CALENDAR_DEFAULT_CORNER: 'calendarDefaultCorner',
   FLOAT_CALENDAR_THRESHOLD: 'floatCalendarThreshold',
   FILTER_PANEL_SIDE: 'filterPanelSide',
+  SENTINEL_PANEL_SIDE: 'sentinelPanelSide',
   DEFAULT_GRAPH_STATE: 'defaultGraphState',
   DEFAULT_VIEW_MODE: 'defaultViewMode',
   COLORS: 'colors',

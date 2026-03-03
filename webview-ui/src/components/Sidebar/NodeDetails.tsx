@@ -13,12 +13,14 @@ interface NodeDetailsProps {
   node: EngramNode;
   onClose: () => void;
   onShowTrail?: (topicKey?: string, sessionId?: string) => void;
+  bottomOffsetClass?: string;
 }
 
 export const NodeDetails: React.FC<NodeDetailsProps> = ({
   node,
   onClose,
   onShowTrail,
+  bottomOffsetClass = "bottom-3",
 }) => {
   // A trail exists if the node has a topic_key or a non-manual session_id.
   // The backend returns an empty array if no siblings are found — no frontend scan needed.
@@ -38,7 +40,9 @@ export const NodeDetails: React.FC<NodeDetailsProps> = ({
   };
 
   return (
-    <div className="absolute inset-y-3 right-3 w-80 z-50 bg-nexus-bg border border-nexus-border shadow-xl rounded-md animate-[slideInRight_0.3s_ease-out] flex flex-col overflow-hidden">
+    <div
+      className={`absolute top-3 ${bottomOffsetClass} right-3 w-80 z-90 bg-nexus-bg border border-nexus-border shadow-xl rounded-md animate-[slideInRight_0.3s_ease-out] flex flex-col overflow-hidden`}
+    >
       <PanelHeader onClose={onClose}>
         <h3 className="text-[13px] font-bold text-nexus-text-bright truncate pr-4">
           {node.details.title}
@@ -58,11 +62,7 @@ export const NodeDetails: React.FC<NodeDetailsProps> = ({
             valueClassName={`truncate font-medium ${!node.details.author ? "text-nexus-text-bright" : "text-nexus-text-muted italic"}`}
           />
           <MetadataRow icon={Tag} label="Type:" value={node.details.type} />
-          <MetadataRow
-            icon={Folder}
-            label="Proj:"
-            value={node.details.project || "Global"}
-          />
+          <MetadataRow icon={Folder} label="Proj:" value={node.details.project || "Global"} />
           <MetadataRow
             icon={Calendar}
             label="Date:"

@@ -39,6 +39,18 @@ Stack multiple filters simultaneously — all filtering happens in SQL/backend, 
 ### List View Mode
 Switch between the force-directed graph and a flat, chronological list of your observations with a single button in the toolbar. The list renders the same data as the graph — all active filters (search, date, type, Focus Mode) apply identically to both views. Each entry shows a **project pill** that activates Focus Mode for that project on click. Your preferred default view (`graph` or `list`) can be saved via `nexus.defaultViewMode`.
 
+### Sentinel Live Feed (Optional, MCP Sentinel Required)
+Engram Nexus can overlay a real-time security telemetry feed on top of the graph canvas using SSE from **MCP Sentinel**.
+
+- **Connection source**: `http://127.0.0.1:7438/events` (with `http://localhost:7438/events` fallback).
+- **Live status**: `LIVE` (connected) / `RECONNECTING` (backend unavailable or restarting).
+- **Security event rendering**:
+  - `INVOCATION` → green terminal-style event row.
+  - `BLOCK` → red event row + explicit `reason`.
+- **Performance-safe buffering**: circular buffer of the last 10 events.
+- **Toggle behavior**: show/hide Sentinel panel from the bottom toolbar (eye icon).
+- **Panel placement**: configurable independently from filter panel (`nexus.sentinelPanelSide`), default is disabled (`none`).
+
 ### Knowledge Trail (Time Machine)
 Select any node and click **Show Trail** to transform the graph into a top-down chronological tree. Trails group related observations by `topic_key` (same theme across sessions) or `session_id` (same work session). Use **Copy Entire Trail** to generate a markdown-formatted report of the entire decision thread.
 
@@ -68,6 +80,7 @@ Open VS Code Settings (`Cmd+,` → Extensions → Engram Nexus) to customize the
 | `nexus.defaultGraphState` | `"expanded"` | Whether projects start collapsed or expanded on load. |
 | `nexus.defaultViewMode` | `"graph"` | Default view when the extension opens. Options: `graph`, `list`. |
 | `nexus.filterPanelSide` | `"top"` | Where the semantic type filter panel appears. Options: `left`, `right`, `top`, `bottom`, `none`. |
+| `nexus.sentinelPanelSide` | `"none"` | Where the Sentinel telemetry panel appears. Options: `top-left`, `top-right`, `bottom-left`, `bottom-right`, `none`. |
 | `nexus.calendarDefaultCorner` | `"right"` | Default corner for the floating calendar. Options: `left`, `right`. |
 | `nexus.floatCalendarThreshold` | `380` | Panel width (px) at which the calendar switches to floating overlay mode. |
 
@@ -96,6 +109,7 @@ Color changes apply live without reloading the extension.
 
 - **VS Code** `^1.80.0`
 - **Engram** — This extension reads the SQLite database created by the [Engram memory system](https://github.com/Gentleman-Programming/engram) at `~/.engram/engram.db`. Engram must be installed and have at least one saved observation for the graph to render.
+- **MCP Sentinel** (optional, required only for Sentinel Live Feed) — install and run `mcp-sentinel` locally so the SSE endpoint is available on port `7438` (`/events`). If not installed, keep `nexus.sentinelPanelSide` as `none`.
 
 ---
 
@@ -124,6 +138,8 @@ webview-ui/src/
   hooks/
     useGraphData.ts           — IPC data flow, search/trail triggers
     useGraphSettings.ts       — Settings, theme, layout state
+    useSentinelTelemetry.ts   — SSE subscription + reconnect + 10-event circular buffer
+    overlayPolicy.ts          — Overlay lane rules (filter/sentinel/detail/toolbar docking)
     useSmartCamera.ts         — Force graph camera control (auto-zoom, physics tuning)
     useClickTracker.ts        — Single vs double-click disambiguation (250 ms debounce)
 ```
@@ -136,6 +152,13 @@ webview-ui/src/
 ---
 
 ## Release Notes
+
+### 1.4.0
+- **Sentinel Live Feed (optional)** — SSE telemetry overlay from MCP Sentinel with connection status and terminal-style feed.
+- **Security event semantics** — `INVOCATION` in green, `BLOCK` in red, with `reason` shown for blocked events.
+- **Sentinel panel toggle** — Eye button in the bottom toolbar to collapse/expand the telemetry panel.
+- **Sentinel panel positioning** — New `nexus.sentinelPanelSide` setting: `top-left`, `top-right`, `bottom-left`, `bottom-right`, `none`.
+- **Overlay lane policy refactor** — Centralized token/policy layout logic to prevent collisions between filter panel, sentinel panel, detail panel, calendar, and center-graph action.
 
 ### 1.3.0
 - **List View Mode** — New chronological list as an alternative to the graph, toggled with a toolbar button. All active filters apply to both views identically.
