@@ -39,6 +39,6 @@ export const TOP_LANES = {
 } as const;
 
 export const DETAIL_PANEL_BOTTOM_OFFSETS = {
-  calendarOpen: "bottom-92",
-  calendarClosed: "bottom-14",
+  calendarOpen: "bottom-96",
+  calendarClosed: "bottom-18",
 } as const;

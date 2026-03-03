@@ -156,6 +156,6 @@ describe("resolveOverlayPolicy", () => {
     });
 
     expect(openPolicy.detailPanelBottomOffsetClass).toBe("bottom-96");
-    expect(closedPolicy.detailPanelBottomOffsetClass).toBe("bottom-16");
+    expect(closedPolicy.detailPanelBottomOffsetClass).toBe("bottom-18");
   });
 });

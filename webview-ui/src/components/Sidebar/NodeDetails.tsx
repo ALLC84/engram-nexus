@@ -55,11 +55,11 @@ export const NodeDetails: React.FC<NodeDetailsProps> = ({
             icon={Brain}
             label="Origin:"
             value={
-              !node.details.author || node.details.author.trim() === ""
+              node.details.scope === "personal" || !node.details.author || node.details.author.trim() === ""
                 ? "👤 Tú (Local)"
                 : `👥 Equipo: ${node.details.author}`
             }
-            valueClassName={`truncate font-medium ${!node.details.author ? "text-nexus-text-bright" : "text-nexus-text-muted italic"}`}
+            valueClassName={`truncate font-medium ${node.details.scope === "personal" || !node.details.author ? "text-nexus-text-bright" : "text-nexus-text-muted italic"}`}
           />
           <MetadataRow icon={Tag} label="Type:" value={node.details.type} />
           <MetadataRow icon={Folder} label="Proj:" value={node.details.project || "Global"} />

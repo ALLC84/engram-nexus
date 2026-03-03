@@ -208,6 +208,20 @@ body.theme-light {
   background: var(--nexus-text-muted);
 }
 
+/* Horizontal filter bar: clearer scrollbar affordance */
+.nexus-horizontal-scroll::-webkit-scrollbar {
+  height: 8px;
+}
+
+.nexus-horizontal-scroll::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--nexus-border) 75%, transparent);
+  border-radius: 999px;
+}
+
+.nexus-horizontal-scroll::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--nexus-text-muted) 80%, transparent);
+}
+
 /* Animations */
 @keyframes fadeIn {
   from {

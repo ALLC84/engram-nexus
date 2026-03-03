@@ -33,7 +33,7 @@ export const QUERY_ALL_PROJECTS =
  */
 export function buildGraphDataQuery(clause: string): string {
   return (
-    `SELECT id, title, content, type, tool_name as author, topic_key, project, session_id, created_at` +
+    `SELECT id, title, content, type, tool_name as author, scope, topic_key, project, session_id, created_at` +
     ` FROM observations` +
     ` WHERE deleted_at IS NULL ${clause}` +
     ` ORDER BY created_at ASC LIMIT ?`
@@ -56,7 +56,7 @@ export function buildFtsSearchQuery(clause: string): string {
     .replace(/type/g, 'o.type');
 
   return (
-    `SELECT o.id, o.title, o.content, o.type, o.tool_name as author, o.topic_key, o.project, o.session_id, o.created_at` +
+    `SELECT o.id, o.title, o.content, o.type, o.tool_name as author, o.scope, o.topic_key, o.project, o.session_id, o.created_at` +
     ` FROM observations o` +
     ` JOIN observations_fts fts ON o.id = fts.rowid` +
     ` WHERE observations_fts MATCH ? ${aliasedClause}` +
@@ -72,7 +72,7 @@ export function buildFtsSearchQuery(clause: string): string {
  */
 export function buildFallbackSearchQuery(clause: string): string {
   return (
-    `SELECT id, title, content, type, tool_name as author, topic_key, project, session_id, created_at` +
+    `SELECT id, title, content, type, tool_name as author, scope, topic_key, project, session_id, created_at` +
     ` FROM observations` +
     ` WHERE (title LIKE ? OR content LIKE ?) AND deleted_at IS NULL ${clause}` +
     ` ORDER BY created_at ASC` +
@@ -89,7 +89,7 @@ export function buildFallbackSearchQuery(clause: string): string {
  */
 export function buildTrailQuery(conditionsClause: string): string {
   return (
-    `SELECT id, title, content, type, tool_name as author, topic_key, project, session_id, created_at` +
+    `SELECT id, title, content, type, tool_name as author, scope, topic_key, project, session_id, created_at` +
     ` FROM observations` +
     ` WHERE deleted_at IS NULL AND (${conditionsClause})` +
     ` ORDER BY created_at ASC`

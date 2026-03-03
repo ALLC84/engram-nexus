@@ -3,7 +3,7 @@ import { vscode } from "../vscode";
 import { IPC_CHANNELS } from "../constants/ipc";
 import type { EngramGraphData, ObservationDetails, SearchPayload, TrailPayload } from "../types/graph.d";
 
-const EMPTY_GRAPH: EngramGraphData = { nodes: [], links: [], projects: [], allProjects: [] };
+const EMPTY_GRAPH: EngramGraphData = { nodes: [], links: [], projects: [], allProjects: [], observations: [] };
 
 /**
  * Encapsulates all IPC data flow between the Webview and the VS Code extension.

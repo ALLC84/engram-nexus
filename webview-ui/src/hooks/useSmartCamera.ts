@@ -1,36 +1,30 @@
 import { useRef, useEffect } from "react";
-import { forceRadial } from "d3-force";
+import { forceCollide } from "d3-force";
 import type { EngramGraphData, EngramLink, EngramNode } from "../types/graph.d";
 
-// ── Module-level D3 force callbacks ────────────────────────────────────────────
-// These are pure functions of the link data only. Declaring them at module scope
-// means they are created exactly once, not on every useEffect execution triggered
-// by a data change (search / filter). Passing the same function reference to
-// linkForce.distance / .strength on subsequent calls is a no-op in D3.
+const SOMA_TYPE = "system";
+const PROJECT_TYPE = "project";
+const TYPE_HUB_TYPE = "type_hub";
 
-/** Structural links (value ≥ 1) are shorter; organic semantic links are looser. */
-const LINK_DISTANCE = (link: EngramLink): number => (link.value >= 1 ? 30 : 60);
-
-/** Structural links pull harder; organic links stay loosely connected. */
-const LINK_STRENGTH = (link: EngramLink): number => (link.value >= 1 ? 0.8 : 0.2);
+/** Radius of the ring on which project hubs are pinned around SOMA. */
+const PROJECT_RING_RADIUS = 150;
+/** Orbit radius at which Type Hubs are seeded around their project hub. */
+const TYPE_HUB_ORBIT_RADIUS = 50;
+/** Orbit radius at which observations are seeded around their Type Hub. */
+const OBS_CLUSTER_RADIUS = 6;
+/** Strength of the per-project/per-type radial orbit force. */
+const CLUSTER_STRENGTH = 0.4;
 
 /**
- * Encapsulates the ForceGraph2D imperative camera operations.
+ * Configures hub-and-spoke layout:
  *
- * Whenever `data` changes:
- *  1. Reconfigures charge and link forces for Engram's visual hierarchy.
- *  2. Fires a deferred `zoomToFit` via `setTimeout(..., 50)` to let physics
- *     settle before framing — this is the "Event Loop hack" described in the
- *     architecture checklist.
+ *   SOMA (pinned at center)
+ *     └─ Project hubs (pinned equidistant on a circle)
+ *          └─ Observations (orbit their hub at OBS_CLUSTER_RADIUS)
  *
- * Returns the `fgRef` to attach to `<ForceGraph2D>` and a stable `zoomToFit`
- * callback for the manual "Center graph" button.
- *
- * Note: `fgRef` is typed as `any` because react-force-graph-2d's ref handle
- * type (`ForceGraphMethods<N, L>`) requires the full parameterised graph types,
- * and `ForceGraph2D` itself is imported without type declarations (@ts-ignore).
- * The interface is therefore kept loose here — all call sites are safe because
- * we guard with `if (fgRef.current)` before every imperative call.
+ * Timing: everything runs inside a requestAnimationFrame so it executes
+ * AFTER react-force-graph's internal node initialisation, which assigns
+ * small random jitter positions before the React useEffect fires.
  */
 export function useSmartCamera(data: EngramGraphData) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -38,34 +32,212 @@ export function useSmartCamera(data: EngramGraphData) {
 
   useEffect(() => {
     if (!fgRef.current) return;
+    let cancelled = false;
 
-    const chargeForce = fgRef.current.d3Force("charge");
-    if (chargeForce) {
-      // Increased repulsion to prevent overlap in the dense core
-      chargeForce.strength(-120);
-      if (typeof chargeForce.distanceMax === "function") {
-        chargeForce.distanceMax(200);
+    // Delay one animation frame so react-force-graph finishes its own
+    // initialisation before we override positions and forces.
+    const raf = requestAnimationFrame(() => {
+      if (cancelled || !fgRef.current) return;
+
+      try {
+        const fg = fgRef.current;
+
+        // ── 1. Pin SOMA at canvas center ───────────────────────────────────
+        const somaNode = data.nodes.find((n) => n.details?.type === SOMA_TYPE);
+        if (somaNode) {
+          somaNode.fx = 0;
+          somaNode.fy = 0;
+          somaNode.x = 0;
+          somaNode.y = 0;
+          somaNode.vx = 0;
+          somaNode.vy = 0;
+        }
+
+        // ── 2. Pin project nodes equidistant on a ring ─────────────────────
+        const projectNodes = data.nodes.filter((n) => n.details?.type === PROJECT_TYPE);
+        projectNodes.forEach((proj, i) => {
+          const angle = (2 * Math.PI * i) / projectNodes.length - Math.PI / 2;
+          proj.fx = Math.cos(angle) * PROJECT_RING_RADIUS;
+          proj.fy = Math.sin(angle) * PROJECT_RING_RADIUS;
+          proj.x = proj.fx;
+          proj.y = proj.fy;
+          proj.vx = 0;
+          proj.vy = 0;
+        });
+
+        // ── 3. Build lookup for Project Hubs ──
+        const projectPositions = new Map<string, { x: number; y: number }>();
+        projectNodes.forEach((proj) => {
+          const projName = proj.details?.project;
+          if (projName && proj.fx !== undefined && proj.fy !== undefined) {
+            projectPositions.set(projName, { x: proj.fx, y: proj.fy });
+          }
+        });
+
+        // ── 3.5 Seed and pin Type Hubs around their Project Hubs ──
+        const typeHubsMap = new Map<string, EngramNode[]>();
+        const typeHubPositions = new Map<string | number, { x: number; y: number }>();
+
+        data.nodes.forEach((node) => {
+          if (node.details?.type === TYPE_HUB_TYPE) {
+            const projName = node.details?.project ?? "";
+            const bucket = typeHubsMap.get(projName);
+            if (bucket) bucket.push(node);
+            else typeHubsMap.set(projName, [node]);
+          }
+        });
+
+        typeHubsMap.forEach((hubs, projName) => {
+          const projectPos = projectPositions.get(projName);
+          if (!projectPos) return;
+
+          hubs.forEach((hub, i) => {
+            const angle = (2 * Math.PI * i) / hubs.length;
+            hub.fx = projectPos.x + Math.cos(angle) * TYPE_HUB_ORBIT_RADIUS;
+            hub.fy = projectPos.y + Math.sin(angle) * TYPE_HUB_ORBIT_RADIUS;
+            hub.x = hub.fx;
+            hub.y = hub.fy;
+            hub.vx = 0;
+            hub.vy = 0;
+
+            if (hub.id !== undefined) {
+              typeHubPositions.set(hub.id, { x: hub.fx, y: hub.fy });
+            }
+          });
+        });
+
+        // ── 4. Seed observation positions in a circle around their Type Hub ─────
+        // We find the parent Type Hub by looking at links, since observations
+        // are linked to their Type Hubs (Pass 4 in graphBuilder.ts).
+        const obsToHubMap = new Map<string | number, string | number>();
+        data.links.forEach((link) => {
+          // We are looking for links where source is a TYPE_HUB and target is an observation
+          const srcId =
+            typeof link.source === "object" && link.source !== null ? link.source.id : link.source;
+          const tgtId =
+            typeof link.target === "object" && link.target !== null ? link.target.id : link.target;
+
+          if (!srcId || !tgtId) return;
+
+          if (typeof srcId === "string" && srcId.startsWith("type-hub-")) {
+            obsToHubMap.set(tgtId, srcId);
+          } else if (typeof tgtId === "string" && tgtId.startsWith("type-hub-")) {
+            // Unlikely but safe
+            obsToHubMap.set(srcId, tgtId);
+          }
+        });
+
+        const hubObsMap = new Map<string | number, EngramNode[]>();
+        data.nodes.forEach((node) => {
+          const type = node.details?.type;
+          if (type === SOMA_TYPE || type === PROJECT_TYPE || type === TYPE_HUB_TYPE) return;
+
+          if (!node.id) return;
+          const parentHubId = obsToHubMap.get(node.id);
+          if (!parentHubId) return;
+
+          const bucket = hubObsMap.get(parentHubId);
+          if (bucket) bucket.push(node);
+          else hubObsMap.set(parentHubId, [node]);
+        });
+
+        hubObsMap.forEach((obsNodes, hubId) => {
+          const hubPos = typeHubPositions.get(hubId);
+          if (!hubPos) return;
+          obsNodes.forEach((node, i) => {
+            const angle = (2 * Math.PI * i) / obsNodes.length;
+            node.x = hubPos.x + Math.cos(angle) * OBS_CLUSTER_RADIUS;
+            node.y = hubPos.y + Math.sin(angle) * OBS_CLUSTER_RADIUS;
+            node.vx = 0;
+            node.vy = 0;
+          });
+        });
+
+        // ── 5. Cluster force: keep observations orbiting their Type Hub ─────────
+        fg.d3Force("cluster", (alpha: number) => {
+          data.nodes.forEach((node: EngramNode) => {
+            const type = node.details?.type;
+            if (type === SOMA_TYPE || type === PROJECT_TYPE || type === TYPE_HUB_TYPE) return;
+
+            if (!node.id) return;
+            const parentHubId = obsToHubMap.get(node.id);
+            if (!parentHubId) return;
+
+            const hubPos = typeHubPositions.get(parentHubId);
+            if (!hubPos) return;
+
+            const dx = hubPos.x - (node.x ?? 0);
+            const dy = hubPos.y - (node.y ?? 0);
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < 0.001) return;
+            // diff > 0 → pull in; diff < 0 → push out; = 0 → no force
+            const diff = dist - OBS_CLUSTER_RADIUS;
+            const factor = (diff / dist) * CLUSTER_STRENGTH * alpha;
+            node.vx = (node.vx ?? 0) + dx * factor;
+            node.vy = (node.vy ?? 0) + dy * factor;
+          });
+        });
+
+        // ── 6. Collision: spread nodes angularly within each cluster ───────
+        fg.d3Force(
+          "collision",
+          forceCollide((node: EngramNode) => {
+            const type = node.details?.type;
+            if (type === SOMA_TYPE) return 14;
+            if (type === PROJECT_TYPE) return 12;
+            if (type === TYPE_HUB_TYPE) return 10;
+            return 8;
+          }).strength(0.9)
+        );
+
+        // ── 7. Charge: local only — clusters must not repel each other ─────
+        const chargeForce = fg.d3Force("charge");
+        if (chargeForce) {
+          chargeForce.strength(-30);
+          if (typeof chargeForce.distanceMax === "function") {
+            chargeForce.distanceMax(100);
+          }
+        }
+
+        // ── 8. Link force: session chains shape cluster interior topology ──
+        const linkForce = fg.d3Force("link");
+        if (linkForce) {
+          linkForce.distance((link: EngramLink) => {
+            if (link.value === 2) return 30;
+            if (link.value >= 1) return 55;
+            return 70;
+          });
+          linkForce.strength((link: EngramLink) => {
+            if (link.value === 2) return 0.6;
+            if (link.value >= 1) return 0.2;
+            return 0.02; // structural: cluster force owns positioning
+          });
+        }
+
+        // ── 9. Remove radial gravity and center drift — pinned nodes make it redundant ──────
+        fg.d3Force("radial", null);
+        fg.d3Force("center", null);
+
+        // ── 10. Restart simulation from our seeded positions ───────────────
+        fg.d3ReheatSimulation?.();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (fg as any)._simulation?.alpha(1).restart();
+      } catch (error) {
+        console.error("[useSmartCamera] force configuration failed", error);
       }
-    }
-
-    // Add radial force to create a "gravity well" pulling nodes to center (Obsidian style)
-    // 0,0,0 is the center of the coordinate system
-    fgRef.current.d3Force("radial", forceRadial(0, 0, 0).strength(0.8));
-
-    const linkForce = fgRef.current.d3Force("link");
-    if (linkForce) {
-      // Module-level constants passed by reference — no closure created here.
-      linkForce.distance(LINK_DISTANCE);
-      linkForce.strength(LINK_STRENGTH);
-    }
+    });
 
     const timeout = setTimeout(() => {
-      if (fgRef.current) {
-        fgRef.current.zoomToFit(600, 50);
+      if (!cancelled && fgRef.current) {
+        fgRef.current.zoomToFit(700, 60);
       }
-    }, 50);
+    }, 2000);
 
-    return () => clearTimeout(timeout);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf);
+      clearTimeout(timeout);
+    };
   }, [data]);
 
   const zoomToFit = () => {
@@ -74,11 +246,6 @@ export function useSmartCamera(data: EngramGraphData) {
     }
   };
 
-  /**
-   * Smoothly pans and zooms to a given node.
-   * Safe to call even if the node coordinates are not yet settled — guards on
-   * `node.x` / `node.y` being numeric before invoking the imperative API.
-   */
   const focusNode = (node: EngramNode) => {
     if (!fgRef.current) return;
     const x = node.x;

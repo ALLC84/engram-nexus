@@ -10,7 +10,8 @@ export const OBSERVATION_TYPES = {
   PATTERN: 'pattern',
   LEARNING: 'learning',
   SESSION_SUMMARY: 'session_summary',
-  /** Administrative node type for the root SOMA hub */
+  /** Administrative node type for grouping by observation type */
+  TYPE_HUB: 'type_hub',
   SYSTEM: 'system',
   /** Administrative node type for project cluster nodes */
   PROJECT: 'project',
@@ -51,6 +52,7 @@ export const ADMIN_NODE_TYPES = [
 export const NODE_GROUPS = {
   SOMA_ROOT: 'soma-root',
   PROJECT: 'project',
+  TYPE_HUB: 'type_hub',
 } as const;
 
 /** Fixed node IDs for structural graph nodes. */

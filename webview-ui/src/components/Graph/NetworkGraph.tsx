@@ -122,6 +122,11 @@ export const NetworkGraph: FC<NetworkGraphProps> = ({
   const nodeLinksRef = useRef<Map<string, EngramLink[]>>(new Map());
   const animationFrameRef = useRef<number | null>(null);
 
+  // ── Hover state for neighborhood dimming (Obsidian-style focus ring) ────────
+  const hoveredNodeIdRef = useRef<string | number | null>(null);
+  // Precomputed set of direct neighbors of the hovered node — O(1) lookup per frame.
+  const hoveredNeighborSetRef = useRef<Set<string | number>>(new Set());
+
   // ── Dynamic colour ref ───────────────────────────────────────────────────────
   // Synced each render so the stable resolveColor callback ([] deps) can read
   // the latest user-configured palette without being recreated.
@@ -134,6 +139,15 @@ export const NetworkGraph: FC<NetworkGraphProps> = ({
     const type = node.details?.type;
     if (type === "system") return SOMA_COLOR;
     if (type === "project") return PROJECT_COLOR;
+
+    // Type hubs represent a specific type, stored in their label/name
+    if (type === "type_hub" && node.name) {
+      const representedType = node.name.toLowerCase();
+      return (
+        nodeColorsRef.current[representedType] ?? TYPE_COLORS[representedType] ?? FALLBACK_COLOR
+      );
+    }
+
     return nodeColorsRef.current[type] ?? TYPE_COLORS[type] ?? FALLBACK_COLOR;
     // nodeColorsRef is a stable ref object — does not need to be in deps.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -149,6 +163,26 @@ export const NetworkGraph: FC<NetworkGraphProps> = ({
   // react-force-graph fires onNodeClick even after a drag ends. We track whether
   // the pointer moved so we can skip the camera animation on drag-release clicks.
   const hasDragged = useRef(false);
+
+  // ── Hover handler — builds the neighbor set on enter, clears on leave ───────
+  const handleNodeHover = useCallback((node: EngramNode | null) => {
+    hoveredNodeIdRef.current = node?.id ?? null;
+    if (node?.id !== undefined && node.id !== null) {
+      const neighbors = new Set<string | number>();
+      const links = nodeLinksRef.current.get(String(node.id)) ?? [];
+      links.forEach((link) => {
+        const src = link.source as EngramNode | string | number;
+        const tgt = link.target as EngramNode | string | number;
+        const srcId = typeof src === "object" && src !== null ? src.id : src;
+        const tgtId = typeof tgt === "object" && tgt !== null ? tgt.id : tgt;
+        if (srcId !== undefined && srcId !== null && srcId !== node.id) neighbors.add(srcId);
+        if (tgtId !== undefined && tgtId !== null && tgtId !== node.id) neighbors.add(tgtId);
+      });
+      hoveredNeighborSetRef.current = neighbors;
+    } else {
+      hoveredNeighborSetRef.current = new Set();
+    }
+  }, []);
 
   // ── Internal click handler ──────────────────────────────────────────────────
   const handleNodeClick = useCallback(
@@ -188,29 +222,26 @@ export const NetworkGraph: FC<NetworkGraphProps> = ({
     animationFrameRef.current = requestAnimationFrame(tick);
   }, [fgRef]);
 
-  const resolveSentinelNode = useCallback(
-    (event: SentinelTelemetryEvent): EngramNode | null => {
-      const rawCandidates = [
-        event.tool,
-        event.raw.tool,
-        event.raw.toolName,
-        event.raw.tool_name,
-        event.raw.targetTool,
-        event.raw.target_tool,
-        event.summary,
-      ];
+  const resolveSentinelNode = useCallback((event: SentinelTelemetryEvent): EngramNode | null => {
+    const rawCandidates = [
+      event.tool,
+      event.raw.tool,
+      event.raw.toolName,
+      event.raw.tool_name,
+      event.raw.targetTool,
+      event.raw.target_tool,
+      event.summary,
+    ];
 
-      const toolCandidates = rawCandidates.flatMap((candidate) => extractToolCandidates(candidate));
-      const aliasMap = nodeLookupRef.current;
+    const toolCandidates = rawCandidates.flatMap((candidate) => extractToolCandidates(candidate));
+    const aliasMap = nodeLookupRef.current;
 
-      for (const candidate of toolCandidates) {
-        const matched = aliasMap.get(candidate);
-        if (matched) return matched;
-      }
-      return null;
-    },
-    []
-  );
+    for (const candidate of toolCandidates) {
+      const matched = aliasMap.get(candidate);
+      if (matched) return matched;
+    }
+    return null;
+  }, []);
 
   useEffect(() => {
     const aliases = new Map<string, EngramNode>();
@@ -314,14 +345,25 @@ export const NetworkGraph: FC<NetworkGraphProps> = ({
       ctx.beginPath();
       ctx.arc(x, y, radius, 0, 2 * Math.PI, false);
 
-      const isTeamNode = node.details && node.details.author && node.details.author.trim() !== "";
+      const isTeamNode =
+        node.details &&
+        node.details.scope !== "personal" &&
+        !!node.details.author &&
+        node.details.author.trim() !== "";
+
+      // Neighborhood dimming: non-neighbor nodes fade to near-invisible on hover.
+      const hoveredId = hoveredNodeIdRef.current;
+      const isDimmed =
+        hoveredId !== null &&
+        node.id !== hoveredId &&
+        !hoveredNeighborSetRef.current.has(node.id as string | number);
 
       if (isTeamNode) {
         ctx.setLineDash(TEAM_NODE_DASH); // stable reference, no per-frame alloc
-        ctx.globalAlpha = 0.4;
+        ctx.globalAlpha = isDimmed ? 0.06 : 0.4;
       } else {
         ctx.setLineDash(SOLID_DASH);
-        ctx.globalAlpha = 1.0;
+        ctx.globalAlpha = isDimmed ? 0.06 : 1.0;
       }
 
       ctx.fillStyle = resolveColor(node);
@@ -359,7 +401,10 @@ export const NetworkGraph: FC<NetworkGraphProps> = ({
         ctx.stroke();
       }
 
-      const pulse = node.id !== undefined && node.id !== null ? sentinelPulsesRef.current.get(node.id) : undefined;
+      const pulse =
+        node.id !== undefined && node.id !== null
+          ? sentinelPulsesRef.current.get(node.id)
+          : undefined;
       if (pulse) {
         const now = performance.now();
         const duration = Math.max(1, pulse.endsAt - pulse.startedAt);
@@ -390,8 +435,9 @@ export const NetworkGraph: FC<NetworkGraphProps> = ({
         }
       }
 
-      // Semantic zoom: labels only for root/projects, or when zoomed in
-      if (globalScale > 3.5 || val > 1) {
+      // Semantic zoom: labels for root/projects (val > 2), explicitly hovered nodes, OR when zoomed in
+      const isHovered = hoveredId !== null && node.id === hoveredId;
+      if (!isDimmed && (val > 2 || isHovered || globalScale > 3.5)) {
         const fontSize = (val > 1 ? 12 : 9) / globalScale;
         ctx.font = `${val > 1 ? "bold " : ""}${fontSize}px Inter, -apple-system, system-ui, sans-serif`;
         ctx.textAlign = "center";
@@ -405,38 +451,58 @@ export const NetworkGraph: FC<NetworkGraphProps> = ({
   );
 
   // ── Stable link colour accessor ─────────────────────────────────────────────
-  // Reads the current VS Code CSS variable at call-time so theme switches are
-  // reflected without needing a deps change or re-registration.
+  // Obsidian-style: edges at ~20% base opacity. On hover, incident edges highlight
+  // at 80% and non-incident edges drop to ~4% — creating a clean focus ring effect.
   const getLinkColor = useCallback((link: EngramLink): string => {
     const targetNode = link.target as EngramNode;
-    const isTeamTarget = targetNode?.details?.author && targetNode.details.author.trim() !== "";
-    if (isTeamTarget) {
-      const accent =
-        getComputedStyle(document.body).getPropertyValue("--nexus-accent").trim() || "#8b5cf6";
-      return accent + "44"; // ~27 % opacity
+
+    const borderColor = getComputedStyle(document.body).getPropertyValue("--nexus-border").trim();
+    const isTeamTarget =
+      targetNode?.details?.scope !== "personal" &&
+      !!targetNode?.details?.author &&
+      targetNode.details.author.trim() !== "";
+    const accent =
+      getComputedStyle(document.body).getPropertyValue("--nexus-accent").trim() || "#8b5cf6";
+
+    const hoveredId = hoveredNodeIdRef.current;
+    if (hoveredId !== null) {
+      const src = link.source as EngramNode | string | number;
+      const tgt = link.target as EngramNode | string | number;
+      const srcId = typeof src === "object" && src !== null ? src.id : src;
+      const tgtId = typeof tgt === "object" && tgt !== null ? tgt.id : tgt;
+      const isIncident = srcId === hoveredId || tgtId === hoveredId;
+      if (isTeamTarget) return isIncident ? accent + "CC" : accent + "22";
+      return borderColor + (isIncident ? "EE" : "15"); // ~93% vs ~8%
     }
-    return getComputedStyle(document.body).getPropertyValue("--nexus-border");
+
+    if (isTeamTarget) return accent + "66";
+    return borderColor + "44"; // ~26% base opacity (Increased from 20%)
   }, []);
 
   // ── Stable link dash accessor ───────────────────────────────────────────────
   // Returns the module-level constant so no array is allocated per link per frame.
   const getLinkLineDash = useCallback((link: EngramLink): number[] | null => {
     const targetNode = link.target as EngramNode;
-    const isTeamTarget = targetNode?.details?.author && targetNode.details.author.trim() !== "";
+    const isTeamTarget =
+      targetNode?.details?.scope !== "personal" &&
+      !!targetNode?.details?.author &&
+      targetNode.details.author.trim() !== "";
     return isTeamTarget ? DASHED_LINK : null;
   }, []);
 
   // ── Stable tooltip label ────────────────────────────────────────────────────
-  // Suppressed when the label is already rendered on canvas to avoid duplicates.
-  // fgRef is a stable ref object — does not need to be listed in deps.
+  // Suppressed whenever the canvas renderer is already drawing the label, which
+  // happens for: large nodes (val > 1), hovered nodes, or high zoom (> 3.5).
+  // The condition mirrors nodeCanvasObject so there is never a duplicate.
   const getNodeLabel = useCallback(
     (node: EngramNode): string => {
       const val = node.val;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const globalScale = (fgRef.current as any)?.zoom() || 1;
-      const isLabelVisible = globalScale > 3.5 || val > 1;
+      const isDrawnOnCanvas =
+        globalScale > 3.5 || val > 1 || hoveredNodeIdRef.current === node.id;
       // Empty string suppresses the tooltip; the library does not render it.
-      return isLabelVisible ? "" : (node.name as string);
+      return isDrawnOnCanvas ? "" : (node.name as string);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     []
@@ -449,12 +515,20 @@ export const NetworkGraph: FC<NetworkGraphProps> = ({
         graphData={data}
         nodeCanvasObject={nodeCanvasObject}
         nodeColor={resolveColor}
-        linkDirectionalParticles={1}
         linkDirectionalParticleSpeed={0.005}
+        linkDirectionalParticles={1}
+        linkDirectionalParticleWidth={1.5}
+        linkWidth={(link) => {
+          const val = (link as EngramLink).value;
+          if (val >= 1.0) return 1.8; // Root -> Project
+          if (val >= 0.8) return 1.2; // Project -> Type Hub
+          return 0.8; // Type Hub -> Observation
+        }}
         backgroundColor="transparent"
         linkColor={getLinkColor}
         linkLineDash={getLinkLineDash}
         onNodeClick={handleNodeClick}
+        onNodeHover={handleNodeHover}
         onNodeDrag={() => {
           hasDragged.current = true;
         }}
@@ -465,7 +539,7 @@ export const NetworkGraph: FC<NetworkGraphProps> = ({
         nodeLabel={getNodeLabel}
         width={width}
         height={height}
-        d3AlphaDecay={0.02}
+        d3AlphaDecay={0.015}
         d3VelocityDecay={0.3}
       />
       {showFloatingCenterButton && (

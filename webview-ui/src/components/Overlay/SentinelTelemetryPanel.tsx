@@ -39,9 +39,9 @@ export const SentinelTelemetryPanel: FC<SentinelTelemetryPanelProps> = ({
 
   return (
     <aside
-      className={`absolute z-80 w-80 max-h-72 pointer-events-none ${basePosition} ${className ?? ""}`}
+      className={`absolute z-80 pointer-events-none ${basePosition} ${className ?? ""}`}
     >
-      <div className="h-full rounded-md border border-emerald-500/40 bg-black/80 shadow-xl backdrop-blur-sm pointer-events-auto overflow-hidden">
+      <div className="flex h-full w-[min(20rem,calc(100vw-3rem))] max-h-[min(24rem,calc(100vh-6.5rem))] flex-col overflow-hidden rounded-md border border-emerald-500/40 bg-black/80 shadow-xl backdrop-blur-sm pointer-events-auto">
         <header className="flex items-center justify-between px-3 py-2 border-b border-emerald-500/30 font-mono text-[10px] uppercase tracking-widest text-emerald-300">
           <span>Sentinel Live Feed</span>
           <span
@@ -54,7 +54,7 @@ export const SentinelTelemetryPanel: FC<SentinelTelemetryPanelProps> = ({
           </span>
         </header>
 
-        <ul className="max-h-60 overflow-y-auto px-2 py-2 space-y-1 font-mono text-[11px]">
+        <ul className="min-h-0 flex-1 overflow-y-auto px-2 py-2 space-y-1 font-mono text-[11px]">
           {[...events].reverse().map((event) => (
             <li
               key={event.id}

@@ -16,6 +16,7 @@ export interface ObservationDetails {
   session_id?: string;
   /** Populated from `tool_name` in the DB — identifies the authoring agent. */
   author?: string;
+  scope?: string;
   created_at: string;
 }
 
@@ -64,6 +65,9 @@ export interface EngramGraphData {
   /** All project names in the database, regardless of active filters.
    *  Always complete — used to populate the Focus Mode dropdown. */
   allProjects: string[];
+  /** Raw observations sorted by created_at DESC (newest first).
+   *  Consumed directly by List view — no frontend filtering or sorting needed. */
+  observations: ObservationDetails[];
 }
 
 // ── IPC Payload contracts ────────────────────────────────────────────────────

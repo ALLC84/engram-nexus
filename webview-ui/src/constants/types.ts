@@ -9,7 +9,8 @@ export const OBSERVATION_TYPES = {
   PATTERN: "pattern",
   LEARNING: "learning",
   SESSION_SUMMARY: "session_summary",
-  /** Administrative node type for the root SOMA hub */
+  /** Administrative node type for grouping by observation type */
+  TYPE_HUB: "type_hub",
   SYSTEM: "system",
   /** Administrative node type for project cluster nodes */
   PROJECT: "project",
@@ -78,4 +79,18 @@ export type FloatCorner = (typeof FLOAT_CORNERS)[keyof typeof FLOAT_CORNERS];
  */
 export const SPECIAL_SESSION_IDS = {
   MANUAL_SAVE: "manual-save",
+} as const;
+
+/**
+ * Node group identifiers for the force graph.
+ * Mirrors src/constants/types.ts (backend).
+ */
+export const NODE_GROUPS = {
+  SOMA_ROOT: "soma-root",
+  PROJECT: "project",
+} as const;
+
+/** Fixed node IDs for structural graph nodes. Mirrors src/constants/types.ts. */
+export const NODE_IDS = {
+  ROOT_SOMA: "root-soma",
 } as const;

@@ -356,7 +356,7 @@ function App() {
             )}
             {viewMode === "list" ? (
               <ListView
-                nodes={graphData.nodes}
+                observations={graphData.observations}
                 onProjectClick={handleFocusProject}
                 filterPanelSide={effectiveFilterPanelSide}
               />

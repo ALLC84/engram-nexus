@@ -25,6 +25,14 @@ VS Code extension that reads `~/.engram/engram.db` (read-only) and renders obser
 
 Communication between modules is **exclusively via IPC** (`postMessage` / `onDidReceiveMessage`). Channel names are defined in `src/constants/ipc.ts`. Never use raw strings for IPC.
 
+## Engram Memory Rules (MANDATORY)
+
+When saving observations with `mem_save` or any engram tool:
+
+- **`scope` must always be `personal`** — this is a local machine, no team members exist.
+- **`type` must be one of:** `decision` | `architecture` | `bugfix` | `pattern` | `config` | `discovery` | `learning` | `manual`
+- Never use invented types like `feature`, `preference`, `passive`, or similar.
+
 ## Inviolable Rules
 
 1. **Read-only database.** No `INSERT`, `UPDATE`, `DELETE`, `CREATE` ever. Pass `{ readonly: true }` on every connection.

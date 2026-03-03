@@ -1,10 +1,4 @@
-import {
-  OBSERVATION_TYPES,
-  NODE_GROUPS,
-  NODE_IDS,
-  SPECIAL_SESSION_IDS,
-  DEFAULT_PROJECT,
-} from '../../constants/types';
+import { OBSERVATION_TYPES, NODE_GROUPS, NODE_IDS, DEFAULT_PROJECT } from '../../constants/types';
 
 export interface Observation {
   id: number;
@@ -15,6 +9,7 @@ export interface Observation {
   project?: string;
   session_id?: string;
   author?: string;
+  scope?: string;
   created_at: string;
 }
 
@@ -38,24 +33,31 @@ export interface GraphData {
   links: GraphLink[];
   projects: string[];
   allProjects: string[];
+  /** Raw observations sorted by created_at DESC (newest first). Used by List view — no frontend filtering needed. */
+  observations: Observation[];
 }
 
 /**
  * Constructs the graph data structure (nodes and links) from a flat list of observations.
  *
- * This function performs three passes:
- * 1. Creates project nodes (clusters).
- * 2. Creates observation nodes and links them to their project.
- * 3. Creates semantic links between observations based on:
- *    - Session ID (same session, same project).
- *    - Topic Key (same topic or sub-topic).
- *    - Type (same type within same project).
+ * ## Link hierarchy
  *
- * @param observations - The list of observations to graph.
- * @param allProjects - The list of all available project names (ensures clusters exist even if empty).
- * @param allProjectsInDb - The complete list of all project names in the database (for allProjects field).
- * @param rootLabel - The label for the central root node (default: 'SOMA').
- * @returns The complete graph data object with nodes and links.
+ * | Layer          | Value | Meaning                                              |
+ * |----------------|-------|------------------------------------------------------|
+ * | Project anchor |  1.0  | Structural — Project linked to SOMA                  |
+ * | Type Hub       |  0.8  | Structural — Type Hub linked to Project              |
+ * | Observation    |  0.5  | Structural — Observation linked to Type Hub          |
+ *
+ * ## Project anchoring: star topology
+ *
+ * Every observation connects to its Type Hub, and every Type Hub connects
+ * to its Project node. The force layout clusters related nodes around their type hub,
+ * which in turn orbit their project hub.
+ *
+ * @param observations     - Flat list of observations, expected sorted by created_at ASC.
+ * @param allProjects      - Project names to render as cluster nodes (can include empty ones).
+ * @param allProjectsInDb  - Complete DB project list (drives the allProjects filter UI).
+ * @param rootLabel        - Label for the central root node (default: 'SOMA').
  */
 export function buildGraphFromObservations(
   observations: Observation[],
@@ -64,13 +66,24 @@ export function buildGraphFromObservations(
   rootLabel = 'SOMA'
 ): GraphData {
   const nodes: GraphNode[] = [];
-  const links: GraphLink[] = [];
+  const linksByPair = new Map<string, GraphLink>();
   const projectNodes = new Set<string>();
+  const typeHubNodes = new Set<string>();
+
+  const addLink = (source: string, target: string, value: number): void => {
+    const key = `${source}::${target}`;
+    const current = linksByPair.get(key);
+    if (!current || value > current.value) {
+      linksByPair.set(key, { source, target, value });
+    }
+  };
+
+  // ── Pass 1: Root and project cluster nodes ────────────────────────────────
 
   nodes.push({
     id: NODE_IDS.ROOT_SOMA,
     name: rootLabel,
-    val: 4,
+    val: 6,
     group: NODE_GROUPS.SOMA_ROOT,
     color: '#ffffff',
     details: {
@@ -101,12 +114,12 @@ export function buildGraphFromObservations(
       } as Observation,
     });
 
-    links.push({
-      source: NODE_IDS.ROOT_SOMA,
-      target: projectId,
-      value: 1,
-    });
+    addLink(NODE_IDS.ROOT_SOMA, projectId, 1);
   });
+
+  // ── Pass 2: Observation nodes ─────────────────────────────────────────────
+  // No project→obs links here. Anchoring happens in Pass 4 once session
+  // groups are known and we can identify the chronological first per session.
 
   observations.forEach((obs) => {
     const projName = obs.project || DEFAULT_PROJECT;
@@ -129,11 +142,7 @@ export function buildGraphFromObservations(
         } as Observation,
       });
 
-      links.push({
-        source: NODE_IDS.ROOT_SOMA,
-        target: projectId,
-        value: 1,
-      });
+      addLink(NODE_IDS.ROOT_SOMA, projectId, 1);
     }
 
     const topicBase = obs.topic_key ? obs.topic_key.split('/')[0].trim() : projName;
@@ -145,65 +154,51 @@ export function buildGraphFromObservations(
       group: topicBase,
       details: { ...obs, project: obs.project || DEFAULT_PROJECT },
     });
-
-    links.push({
-      source: projectId,
-      target: String(obs.id),
-      value: 0.5,
-    });
   });
 
-  // Third pass: Chain observations by session, topic, and type (O(N) — no cliques)
-  const sessionGroups = new Map<string, Observation[]>();
-  const topicGroups = new Map<string, Observation[]>();
-  const typeGroups = new Map<string, Observation[]>();
+  // ── Pass 3: Hub anchoring (Star topology) ──────────────────────────────
+  //
+  // Every observation connects to its Type Hub, and every Type Hub connects
+  // to its Project node. Combined with the session/topic chains above, the
+  // force layout clusters related nodes around their type hub, which in turn
+  // orbit their project hub.
 
   for (const obs of observations) {
-    // Session grouping — skip MANUAL_SAVE
-    if (obs.session_id && obs.session_id !== SPECIAL_SESSION_IDS.MANUAL_SAVE) {
-      const group = sessionGroups.get(obs.session_id) ?? [];
-      group.push(obs);
-      sessionGroups.set(obs.session_id, group);
+    const projName = obs.project ?? DEFAULT_PROJECT;
+    const typeLabel = obs.type || 'unknown';
+    const typeHubId = `type-hub-${projName}-${typeLabel}`;
+
+    // Ensure the Type Hub node exists
+    if (!typeHubNodes.has(typeHubId)) {
+      typeHubNodes.add(typeHubId);
+      nodes.push({
+        id: typeHubId,
+        name: typeLabel.toUpperCase(),
+        val: 2, // Larger than observation (1), smaller than project (3)
+        group: NODE_GROUPS.TYPE_HUB,
+        details: {
+          id: -3,
+          title: `Type: ${typeLabel}`,
+          content: `Hub for all ${typeLabel} observations in ${projName}`,
+          type: NODE_GROUPS.TYPE_HUB,
+          project: projName,
+          created_at: new Date().toISOString(),
+        } as Observation,
+      });
+
+      // Link Project -> Type Hub
+      addLink(`project-${projName}`, typeHubId, 0.8);
     }
 
-    // Topic grouping — scoped per project to avoid cross-project edges
-    if (obs.topic_key) {
-      const topicRoot = obs.topic_key.split('/')[0].trim();
-      if (topicRoot) {
-        const key = `${topicRoot}:${obs.project ?? DEFAULT_PROJECT}`;
-        const group = topicGroups.get(key) ?? [];
-        group.push(obs);
-        topicGroups.set(key, group);
-      }
-    }
-
-    // Type grouping — scoped per project, rescues orphan nodes
-    const typeKey = `${obs.type}:${obs.project ?? DEFAULT_PROJECT}`;
-    const typeGroup = typeGroups.get(typeKey) ?? [];
-    typeGroup.push(obs);
-    typeGroups.set(typeKey, typeGroup);
+    // Link Type Hub -> Observation
+    addLink(typeHubId, String(obs.id), 0.5);
   }
 
-  // Chain: same session → value 2 (strong temporal signal)
-  for (const group of sessionGroups.values()) {
-    for (let i = 0; i < group.length - 1; i++) {
-      links.push({ source: String(group[i].id), target: String(group[i + 1].id), value: 2 });
-    }
-  }
-
-  // Chain: same topic root within same project → value 1 (semantic signal)
-  for (const group of topicGroups.values()) {
-    for (let i = 0; i < group.length - 1; i++) {
-      links.push({ source: String(group[i].id), target: String(group[i + 1].id), value: 1 });
-    }
-  }
-
-  // Chain: same type within same project → value 0.5 (weak structural signal, rescues orphans)
-  for (const group of typeGroups.values()) {
-    for (let i = 0; i < group.length - 1; i++) {
-      links.push({ source: String(group[i].id), target: String(group[i + 1].id), value: 0.5 });
-    }
-  }
-
-  return { nodes, links, projects: Array.from(projectNodes), allProjects: allProjectsInDb };
+  return {
+    nodes,
+    links: Array.from(linksByPair.values()),
+    projects: Array.from(projectNodes),
+    allProjects: allProjectsInDb,
+    observations: observations.slice().reverse(),
+  };
 }
